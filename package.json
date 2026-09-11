@@ -1,0 +1,10 @@
+{
+  "name": "fotmob-d3",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "start": "node server.mjs",
+    "test": "node --test",
+    "check": "node --check server.mjs && node --check dist/app.js && node --check dist/model.js && node --check dist/sync-ui.js && node --check lib/spiideo.mjs && node --check lib/sync.mjs && node --check lib/store.mjs"
+  }
+}

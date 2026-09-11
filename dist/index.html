@@ -1,0 +1,10 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="description" content="Private D3 soccer match analysis prototype"><title>D3 Matchroom</title><link rel="stylesheet" href="/style.css"></head><body>
+<header><a class="brand" href="/">D3<span> / </span>MATCHROOM</a><span class="private">● LOCAL PROTOTYPE</span></header>
+<main><div class="eyebrow">MEN’S SOCCER <span>/</span> MATCH ANALYSIS</div>
+<section class="match"><div class="team"><div class="crest">CWRU</div><div><small>HOME</small><h1>Case Western<br>Reserve University</h1></div></div><div class="score"><strong>— : —</strong><span>Score not imported</span></div><div class="team away"><div><small>AWAY</small><h1>College of<br>Wooster</h1></div><div class="crest wooster">W</div></div></section>
+<div class="notice"><span class="dot"></span><div><strong>Partial match · ratings pending</strong><p>Statistics reflect imported events only. Full events and verified playing time are needed for ratings.</p></div><button id="manage">Manage data ↗</button></div>
+<div id="summary" class="summary"></div>
+<nav aria-label="Match views"><button data-view="players" class="active">Players</button><button data-view="timeline">Event timeline</button><button data-view="data">Data & imports</button></nav>
+<section id="content"></section><footer>D3 MATCHROOM <span>Private analysis workspace · Spiideo sample data</span></footer></main>
+<dialog id="detail"><button id="close" class="close" aria-label="Close player details">×</button><div id="detail-body"></div></dialog><script type="module" src="/app.js"></script></body></html>

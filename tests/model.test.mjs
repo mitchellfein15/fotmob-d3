@@ -1,0 +1,10 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import {readFileSync} from 'node:fs';
+import {playersFor,mergeRecords,validate,GAME} from '../dist/model.js';
+const data=n=>JSON.parse(readFileSync(new URL('../dist/data/'+n+'.json',import.meta.url),'utf8').replace(/^\uFEFF/,''));
+const e=data('events').content,p=data('participants').content,c=data('contenders').content;
+ test('sample stats resolve to named players without possession penalties',()=>{const rows=playersFor(e,p,c[0].id);const alex=rows.find(x=>x.name==='Alex Eby');assert.equal(alex.passes,6);assert.equal(alex.completed,4);assert.equal(rows.length,28);assert.equal(rows.find(x=>x.name==='Cormac Apostolides').shots,1);});
+ test('duplicate imports are idempotent and stale revisions cannot overwrite',()=>{assert.equal(mergeRecords(e,e).length,250);assert.equal(mergeRecords([{id:'a',timeModified:2}], [{id:'a',timeModified:1}])[0].timeModified,2);});
+ test('reject cross-match and malformed imports',()=>{assert.throws(()=>validate({content:[{id:'x',gameId:'other',action:{type:'pass'},timestamp:1}]},'events',c));assert.throws(()=>validate({content:[{id:'x',gameId:GAME,action:{type:'pass'}}]},'events',c));assert.equal(validate(data('participants'),'participants',c).length,28);});
+ test('duels credit both roles and shot blocks use blocker',()=>{const events=[{action:{type:'duel',successfulParticipant:'a',successfulContender:'t',unsuccessfulParticipant:'b',unsuccessfulContender:'t'}},{action:{type:'shot',participant:'a',contender:'t',blockedBy:'b'}}];const rows=playersFor(events,[{id:'a',name:'A',type:'player',contenderId:'t'},{id:'b',name:'B',type:'player',contenderId:'t'}],'t');assert.equal(rows.find(p=>p.id==='a').duelsWon,1);assert.equal(rows.find(p=>p.id==='b').duelsLost,1);assert.equal(rows.find(p=>p.id==='b').blocks,1);});
