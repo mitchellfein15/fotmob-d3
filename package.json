@@ -5,6 +5,9 @@
   "scripts": {
     "start": "node server.mjs",
     "test": "node --test",
-    "check": "node --check server.mjs && node --check dist/app.js && node --check dist/model.js && node --check dist/sync-ui.js && node --check lib/spiideo.mjs && node --check lib/sync.mjs && node --check lib/store.mjs"
+    "check": "node --check server.mjs && node --check dist/app.js && node --check dist/model.js && node --check dist/import-ui.js && node --check lib/xml-import.mjs && node --check lib/identity.mjs && node --check lib/store.mjs"
+  },
+  "dependencies": {
+    "@xmldom/xmldom": "^0.9.12"
   }
 }
