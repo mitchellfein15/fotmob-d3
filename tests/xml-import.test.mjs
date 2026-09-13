@@ -61,6 +61,8 @@ test('local HTTP import persists, reimports stay idempotent, failed imports pres
   assert.equal((await post(fixture(),{'X-Matchroom-Request':'0'})).status,403);
   const response=await post(fixture());assert.equal(response.status,200);const m=await response.json();assert.equal(m.raw,undefined);
   assert.equal((await post(fixture())).status,200);assert.equal((await store.list()).length,1);
+  const attached=await store.match(m.gameId);attached.boxScore={date:'2026-09-06'};attached.raw.boxScoreHtml='<html>saved official source</html>';await store.save(attached);
+  assert.equal((await post(fixture())).status,200);const reimported=await store.match(m.gameId);assert.equal(reimported.boxScore.date,'2026-09-06');assert.equal(reimported.raw.boxScoreHtml,attached.raw.boxScoreHtml);
   assert.equal((await post('<bad/>')).status,400);assert.equal((await new Store(dir).match(m.gameId)).events.length,3);
   assert.equal(await (await fetch(base+'/api/matches/'+m.gameId+'/source')).text(),fixture());
   assert.equal((await fetch(base+'/api/connect',{method:'POST'})).status,404);

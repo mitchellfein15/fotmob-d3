@@ -1,5 +1,6 @@
 import {playersFor} from './model.js';
 import {mountImports} from './import-ui.js';
+import {mountBoxScore,minuteLabel,playerTiming} from './boxscore-ui.js';
 const $=s=>document.querySelector(s);
 const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const label=s=>String(s??'').replaceAll('_',' ');
@@ -15,7 +16,7 @@ function loadMatch(m) {
  $('.score strong').textContent=goals.join(' : ');
  $('.score span').textContent='Goals in imported events';
  $('.notice strong').textContent=m.source==='spiideo-xml'?'XML imported · ratings pending':'Saved match · ratings pending';
- $('.notice p').textContent='Statistics reflect the export. Lineups, playing time, and completeness remain unverified.';
+ $('.notice p').textContent=m.boxScore?'Official lineups and timing attached. Source discrepancies and rating accuracy remain under review.':'Statistics reflect the export. Lineups, playing time, and completeness remain unverified.';
  $('#match-header').hidden=false;$('#match-notice').hidden=false;
  render();
 }
@@ -25,18 +26,18 @@ function render() {
  if(!match){content.innerHTML='<div class="panel"><h2>No match imported yet</h2><p>Choose a Spiideo XML export above to load player statistics and the event timeline.</p></div>';return;}
  const passes=events.filter(e=>e.action.type==='pass');
  $('#summary').innerHTML=[['Imported events',events.length.toLocaleString()],['Passes completed',`${passes.filter(e=>e.action.outcome==='successful').length} / ${passes.length}`],['Shots',events.filter(e=>e.action.type==='shot').length],['Source',match.source==='spiideo-xml'?'XML export':'Saved match']].map(([k,v])=>`<div><span>${k}</span><strong>${v}</strong></div>`).join('');
- if(view==='players')renderPlayers();else if(view==='timeline')renderTimeline();else renderData();
+ if(view==='players')renderPlayers();else if(view==='timeline')renderTimeline();else if(view==='lineups')mountBoxScore(content,match,loadMatch);else renderData();
 }
 function renderPlayers() {
  const rows=playersFor(events,participants,contenders[team].id).filter(p=>`${p.name} ${p.numberText}`.toLowerCase().includes(filter.toLowerCase()));
- content.innerHTML=`<div class="toolbar"><div class="segmented">${contenders.map((c,i)=>`<button data-team="${i}" class="${team===i?'selected':''}">${esc(c.shortName||c.teamName)}</button>`).join('')}</div><label class="search">Search players<input id="search" placeholder="Name or shirt number" value="${esc(filter)}"></label></div><div class="section-title"><h2>${esc(contenders[team].teamName)}</h2><span>${rows.length} players shown</span></div><div class="table-wrap"><table><thead><tr><th>Player</th><th>Passes</th><th>Accuracy</th><th>Duels W / L</th><th>Shots</th><th>Blocks</th><th>Cards</th></tr></thead><tbody>${rows.map(p=>`<tr><td><button class="player" data-player="${esc(p.id)}"><span class="shirt">${esc(p.numberText??'—')}</span><span><b>${esc(p.name)}</b><small>${p.unknown?'Unmapped player':match.source==='spiideo-xml'?'Named in export':p.inStartingLineup?'Starting XI':'Lineup unverified'}</small></span></button></td><td>${p.completed}<span class="muted"> / ${p.passes}</span></td><td>${p.passes?Math.round(p.completed/p.passes*100)+'%':'—'}</td><td>${p.duelsWon} / ${p.duelsLost}</td><td>${p.shots}</td><td>${p.blocks}</td><td>${p.cards}</td></tr>`).join('')||'<tr><td colspan="7">No matching players.</td></tr>'}</tbody></table></div><p class="caption">Players are grouped by the team labels in the source. This is not a verified full roster or lineup.</p>`;
+ content.innerHTML=`<div class="toolbar"><div class="segmented">${contenders.map((c,i)=>`<button data-team="${i}" class="${team===i?'selected':''}">${esc(c.shortName||c.teamName)}</button>`).join('')}</div><label class="search">Search players<input id="search" placeholder="Name or shirt number" value="${esc(filter)}"></label></div><div class="section-title"><h2>${esc(contenders[team].teamName)}</h2><span>${rows.length} players shown</span></div><div class="table-wrap"><table><thead><tr><th>Player</th><th>Minutes*</th><th>Passes</th><th>Accuracy</th><th>Duels W / L</th><th>Shots</th><th>Blocks</th><th>Cards</th></tr></thead><tbody>${rows.map(p=>`<tr><td><button class="player" data-player="${esc(p.id)}"><span class="shirt">${esc(p.numberText??'—')}</span><span><b>${esc(p.name)}</b><small>${p.unknown?'Unmapped player':match.source==='spiideo-xml'?'Named in export':p.inStartingLineup?'Starting XI':'Lineup unverified'}</small></span></button></td><td>${minuteLabel(match,p.id)}</td><td>${p.completed}<span class="muted"> / ${p.passes}</span></td><td>${p.passes?Math.round(p.completed/p.passes*100)+'%':'—'}</td><td>${p.duelsWon} / ${p.duelsLost}</td><td>${p.shots}</td><td>${p.blocks}</td><td>${p.cards}</td></tr>`).join('')||'<tr><td colspan="8">No matching players.</td></tr>'}</tbody></table></div><p class="caption">Statistics use XML team labels. *Minutes are reconstructed from matched official play-by-play; see Lineups & minutes for published values and discrepancies.</p>`;
  content.querySelectorAll('[data-team]').forEach(b=>b.onclick=()=>{team=Number(b.dataset.team);filter='';render();});
  $('#search').oninput=e=>{const pos=e.target.selectionStart;filter=e.target.value;renderPlayers();$('#search').focus();$('#search').setSelectionRange(pos,pos);};
  content.querySelectorAll('[data-player]').forEach(b=>b.onclick=()=>showPlayer(b.dataset.player));
 }
 function showPlayer(id) {
  const p=playersFor(events,participants,contenders[team].id).find(p=>p.id===id);
- $('#detail-body').innerHTML=`<div class="eyebrow">PLAYER SNAPSHOT</div><h2>${esc(p.name)}</h2><p class="muted">${esc(contenders[team].teamName)} · #${esc(p.numberText??'—')}</p><p>Rating and playing time remain unverified.</p><dl><dt>Completed passes</dt><dd>${p.completed} / ${p.passes}</dd><dt>Duels won / lost</dt><dd>${p.duelsWon} / ${p.duelsLost}</dd><dt>Shots / blocks</dt><dd>${p.shots} / ${p.blocks}</dd><dt>Cards</dt><dd>${p.cards}</dd></dl>`;$('#detail').showModal();
+ $('#detail-body').innerHTML=`<div class="eyebrow">PLAYER SNAPSHOT</div><h2>${esc(p.name)}</h2><p class="muted">${esc(contenders[team].teamName)} · #${esc(p.numberText??'—')}</p>${playerTiming(match,p.id)}<dl><dt>Completed passes</dt><dd>${p.completed} / ${p.passes}</dd><dt>Duels won / lost</dt><dd>${p.duelsWon} / ${p.duelsLost}</dd><dt>Shots / blocks</dt><dd>${p.shots} / ${p.blocks}</dd><dt>Cards</dt><dd>${p.cards}</dd></dl>`;$('#detail').showModal();
 }
 function renderTimeline() {
  const types=[...new Set(events.map(e=>e.action.type))].sort();
@@ -55,3 +56,4 @@ $('#manage').onclick=()=>{view='data';render();};
 $('#close').onclick=()=>$('#detail').close();
 render();
 await mountImports(loadMatch);
+

@@ -46,3 +46,37 @@ API credentials, copied cURL requests, upstream HTTP calls, scheduling, discover
 Tests cover XML lane handling, exact duplicates, name/team identity, coordinates, malformed files, repeat imports, local persistence, and HTTP access controls. They do not establish agreement with Spiideo's live statistics.
 
 The supplied Wooster / Case Western export produces 1,421 retained events from 3,919 XML entries, excluding 2,491 player/team representations and collapsing 7 identical action rows. Team totals: Case Western 334 passes / 210 completed / 11 shots / 3 goals; Wooster 294 / 156 / 3 / 0. These totals have not been independently verified in Spiideo.
+
+## Add official box-score information
+
+After importing XML, open **Lineups & minutes**. Paste a men's soccer box-score URL from **athletics.case.edu** or **woosterathletics.com**, then click **Preview box score**. Supported links use the form:
+
+    https://athletics.case.edu/boxscore.aspx?id=9897&path=msoc
+
+Review the date, both team matches, all player matches, statistical differences, and warnings. Check the same-game confirmation and click **Attach box score**. The XML does not contain a verified date, so this review matters, particularly for repeated fixtures between the same teams.
+
+If URL retrieval fails, save the athletics box-score webpage as HTML and choose it under **Use a saved webpage**. Enter its original supported URL as provenance. Only its data tables are parsed; scripts are not executed. A PDF or screenshot is not supported by this importer.
+
+The attachment preserves:
+- Both official player tables, starters/substitutes, jersey numbers, position labels, published integer minutes, and official statistics.
+- Goalkeeper time to the second, saves, and goals conceded.
+- Play-by-play records, period boundaries, explicit second-half lineups, and substitutions.
+- Reconstructed per-period playing stints, source URL, retrieval time, source hash, and the original HTML in private storage.
+
+Name matching normalizes whitespace, punctuation, accents, and first/last name order, then requires a unique match within a team. Team suggestions use roster overlap and must be reviewed. Jersey differences and unmatched XML identities remain visible. The importer never merges same-name players across teams or silently reassigns Spiideo events.
+
+Halftime lineup announcements are authoritative for the second-half starting state; the accompanying substitutions are retained without applying them twice. Missing boundaries, unknown players, inconsistent substitutions, or dismissals withhold reconstructed minutes. Published minutes are retained even when the sequence cannot be reconstructed. Differences over one minute are flagged; positions remain published roster labels rather than roles for each playing stint.
+
+Official and Spiideo statistics remain separate. This game has 17–8 official shots versus 11–3 in Spiideo. Reimporting identical XML preserves its attached box score. Replacing an attachment archives its previous records and HTML in the saved match's raw history. Changed XML creates a separate snapshot and needs a new attachment.
+
+URL fetching is limited to HTTPS on the two supported hosts and the soccer box-score route, without redirects, cookies, or credentials. Requests time out, and HTML is limited to 8 MB. Preview drafts expire after 15 minutes and cannot attach if the underlying XML was reimported.
+
+## Supplied Spiideo analytics screenshots
+
+The screenshots show additional analytics, including XG in the offensive view and distribution breakdowns by area, direction, and range. These screenshots are reference evidence, not a complete data import.
+
+The distribution screenshot shows Alex Eby at 25/36 passes and Aydin Sumer at 3/8; their current same-team XML rows show 24/35 and 2/7. The export also contains one successful pass for each under Wooster. Combining the same-name rows would numerically reconcile those screenshot values, but the application preserves the conflicting source assignments until explicitly reviewed. This is independent of attaching an official roster.
+
+Several column abbreviations and ratio definitions need Spiideo tooltips or an actual analytics response before implementing richer statistical interpretation. No screenshot-derived XG or statistics have been added to the match.
+
+The test fixture is a reduced HTML capture of the public 2026-09-06 CWRU/Wooster box score, retrieved 2026-09-12. It contains only the individual-statistics and play-by-play sections plus the date.
