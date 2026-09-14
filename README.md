@@ -80,3 +80,13 @@ The distribution screenshot shows Alex Eby at 25/36 passes and Aydin Sumer at 3/
 Several column abbreviations and ratio definitions need Spiideo tooltips or an actual analytics response before implementing richer statistical interpretation. No screenshot-derived XG or statistics have been added to the match.
 
 The test fixture is a reduced HTML capture of the public 2026-09-06 CWRU/Wooster box score, retrieved 2026-09-12. It contains only the individual-statistics and play-by-play sections plus the date.
+
+## Experimental player ratings
+
+The Players view now ranks players by an experimental 1–10 rating. Click a player for the exact contribution breakdown. Ratings are recalculated from the saved match when it loads; importing or replacing a box score updates them automatically. The scoring formula is versioned in dist/ratings.js.
+
+Version 1 starts at 6.0. Goals add 1.05 (1.25 for defenders), assists 0.70, and non-goal shots 0.10 up to 1.0. Passing uses completed minus 70% of attempts, weighted 0.055 for midfielders and 0.04 otherwise, bounded to −0.65/+0.85. Duels add 0.09 per win and subtract 0.06 per loss, bounded to −0.65/+0.80 (+1.10 for defenders). Blocks add 0.16 up to 0.50 (0.80 for defenders). Yellow/red cards subtract 0.30/1.20, capped at 2.0. Goalkeepers gain 0.18 per save up to 1.8, lose 0.30 per goal conceded up to 2.0, and gain 0.60 for a clean sheet with at least 60 minutes. Final scores are bounded to 1–10 and rounded to one decimal. These are heuristic weights, not calibrated benchmarks.
+
+Overlapping player shots and goals use the maximum of XML and official counts, never their sum. Assists and goalkeeper statistics come from the official box score. Team shot/goal totals independently use the higher source totals; differences from summed player maxima can occur, and unassigned team shots are not invented for players. Raw sources remain available for inspection. Confirmed incorrect Wooster identities for Alex Eby and Aydin Sumer are excluded when the attached official roster places them on the other team; their passes are dropped from the player ratings, not transferred.
+
+Playing time uses reconstructed seconds, then goalkeeper clock, then published minutes. Minutes do not scale points; appearances under 15 minutes are labeled brief. Players without recorded appearances have no rating. Unknown positions use generic outfield weights. Missing metrics contribute no points; XML-only and box-score-only coverage is labeled explicitly. This feature measures available on-ball actions for fun and does not rate off-ball movement or use screenshot-only xG.
