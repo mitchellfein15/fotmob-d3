@@ -7,7 +7,7 @@ export const RATING_VERSION = 'Experimental v1';
 // Points per event. Penalty weights are positive here and subtracted below.
 export const RATING_WEIGHTS = {
  goal: 1.05,
- defenderGoal: 1.25,
+ defenderGoal: 1.05,
  assist: 0.70,
  shotExcludingGoal: 0.10,
  shotOnTarget: 0.12,
@@ -45,7 +45,7 @@ export const RATING_CAPS = {
  duelsBonus: 0.80,
  defenderDuelsBonus: 2.0,
  blocks: 0.70,
- defenderBlocks: 0.80,
+ defenderBlocks: 0.70,
  discipline: 2.00,
  saves: 1.80,
  goalsConceded: 2.00,

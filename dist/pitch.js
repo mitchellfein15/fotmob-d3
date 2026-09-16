@@ -12,21 +12,21 @@ function playerNode(group,p,club,defs) {
  const id=`avatar-${++sequence}`,crest=`crest-${sequence}`;
  defs.append('clipPath').attr('id',id).append('circle').attr('r',30);
  defs.append('clipPath').attr('id',crest).append('circle').attr('cx',24).attr('cy',22).attr('r',11);
- group.append('circle').attr('r',32).attr('fill','#15251e').attr('stroke','#81988a').attr('stroke-width',2);
+ group.append('circle').attr('r',32).attr('fill','#0e2a18').attr('stroke','#f4fff0').attr('stroke-width',3);
  const initials=p.name?.split(/\s+/).map(s=>s[0]).slice(0,2).join('')||'?';
  image(group,p.avatarUrl||p.photoUrl||p.official?.avatarUrl,placeholder(initials),-30,-30,60,id);
  group.append('circle').attr('cx',24).attr('cy',22).attr('r',13).attr('fill','#111c16');
  image(group,club.crestUrl||club.logoUrl,placeholder(club.shortName?.slice(0,2)||club.teamName?.split(/\s+/).map(s=>s[0]).slice(0,2).join('')||'FC','#53654d'),13,11,22,crest);
- group.append('rect').attr('x',12).attr('y',-37).attr('width',39).attr('height',23).attr('rx',11.5).attr('fill',ratingColor(p.rating)).attr('stroke','#18291f').attr('stroke-width',2);
+ group.append('rect').attr('x',12).attr('y',-37).attr('width',39).attr('height',23).attr('rx',8).attr('fill',ratingColor(p.rating)).attr('stroke','#ffffff').attr('stroke-width',1.5);
  group.append('text').attr('x',31.5).attr('y',-21).attr('class','pitch-rating').text(Number.isFinite(p.rating)?p.rating.toFixed(1):'—');
  group.append('text').attr('y',53).attr('class','pitch-name').text(lastName(p));
  group.append('title').text(`${p.name} · ${p.position} · Rating ${p.rating??'unavailable'}`);
 }
 export function mountPitch(container,match,{onPlayer=()=>{},editable=false,onSave=async()=>{}}={}) {
  const root=d3.select(container).attr('class','lineup-board');
- root.append('h2').text('Tactical lineup');
+ root.append('h2').text(editable?'Edit pitch':'Lineup');
  root.classed('pitch-readonly',!editable);
- root.append('p').attr('class','muted').text(editable?'Drag players or use arrow keys, then save positions. Select a player for their rating breakdown.':'Select a player for their rating breakdown.');
+ root.append('p').attr('class','muted').text(editable?'Drag or use arrow keys, then save. Tap a player for ratings.':'Tap a player for their rating.');
  const toolbar=root.append('div').attr('class','toolbar');
  const teams=toolbar.append('div').attr('class','segmented');
  const reset=toolbar.append('button').text('Reset positions').attr('hidden',editable?null:true);
@@ -57,13 +57,13 @@ export function mountPitch(container,match,{onPlayer=()=>{},editable=false,onSav
   const nodes=tieredLayout(groups.starters,saved);
   const svg=body.append('svg').attr('class','tactical-pitch').attr('viewBox',`0 0 ${PITCH.width} ${PITCH.height}`).attr('aria-label',`${club.teamName} tactical pitch; attack at the top`);
   const defs=svg.append('defs');
-  svg.append('rect').attr('width',720).attr('height',800).attr('rx',16).attr('fill','#192e25');
-  BANDS.forEach((band,i)=>{svg.append('rect').attr('x',16).attr('y',i*200+16).attr('width',688).attr('height',168).attr('fill',i%2?'#20392e':'#1c3229');svg.append('text').attr('x',28).attr('y',i*200+40).attr('class','band-label').text({GK:'GOAL',DEF:'DEFENSE',MID:'MIDFIELD',FWD:'ATTACK'}[band]);});
-  const markings=svg.append('g').attr('fill','none').attr('stroke','#62816d').attr('stroke-opacity',.5).attr('stroke-width',2);
+  svg.append('rect').attr('width',720).attr('height',800).attr('rx',16).attr('fill','#16833c');
+  BANDS.forEach((band,i)=>{svg.append('rect').attr('x',16).attr('y',i*200+16).attr('width',688).attr('height',168).attr('fill',i%2?'#1a9144':'#147a3a');svg.append('text').attr('x',28).attr('y',i*200+40).attr('class','band-label').text({GK:'GOAL',DEF:'DEFENSE',MID:'MIDFIELD',FWD:'ATTACK'}[band]);});
+  const markings=svg.append('g').attr('fill','none').attr('stroke','#e8fbe9').attr('stroke-opacity',.55).attr('stroke-width',2);
   markings.append('rect').attr('x',18).attr('y',18).attr('width',684).attr('height',764);
   markings.append('path').attr('d','M18 400H702 M205 18V140H515V18 M280 18V67H440V18 M205 782V660H515V782 M280 782V733H440V782');
   markings.append('circle').attr('cx',360).attr('cy',400).attr('r',75);
-  markings.append('circle').attr('cx',360).attr('cy',400).attr('r',3).attr('fill','#62816d');
+  markings.append('circle').attr('cx',360).attr('cy',400).attr('r',3).attr('fill','#e8fbe9');
   const players=svg.append('g').selectAll('g').data(nodes,d=>d.id).join('g').attr('class','pitch-player').attr('transform',d=>`translate(${d.x},${d.y})`).attr('tabindex',0).attr('role','button').attr('aria-label',d=>`${d.name}, rating ${d.rating??'unavailable'}. ${editable?'Drag or use arrow keys to reposition; ':''}Enter for details.`);
   players.each(function(p){playerNode(d3.select(this),p,club,defs);});
   const move=(node,d,x,y)=>{Object.assign(d,boundPosition(x,y));d3.select(node).attr('transform',`translate(${d.x},${d.y})`);};

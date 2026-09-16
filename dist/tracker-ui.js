@@ -3,7 +3,7 @@ import {parseTrackerData,nameKey} from './tracker.js';
 import {ratedPlayers} from './ratings.js';
 
 export function mountTracker(container,match,onLoad) {
- container.innerHTML='<h2>Tracker data</h2><p>Choose the team, then paste the tracker table including its header. Total distance must be in kilometres; hard running and sprinting in metres. Saving replaces this team’s tracker data. Clear the text and save to remove it.</p><label>Tracker team<select id="tracker-team"></select></label><label>Paste tab-separated tracker data<textarea id="tracker-tsv" rows="8" spellcheck="false"></textarea></label><button id="tracker-save">Save tracker data</button><p id="tracker-status" role="status" aria-live="polite"></p>';
+ container.innerHTML='<h2>Tracker data</h2><p>Choose the team, then paste the tracker table including its header. Total distance must be in kilometres; hard running and sprinting in metres. Saving replaces this team’s tracker data. Clear the text and save to remove it.</p><div class="admin-summary"><span>Paste TSV · km / metres as published</span></div><label>Tracker team<select id="tracker-team"></select></label><label>Paste tab-separated tracker data<textarea id="tracker-tsv" rows="8" spellcheck="false"></textarea></label><button id="tracker-save">Save tracker data</button><p id="tracker-status" role="status" aria-live="polite"></p>';
  const select=container.querySelector('#tracker-team'),input=container.querySelector('#tracker-tsv'),button=container.querySelector('#tracker-save'),status=container.querySelector('#tracker-status');
  for(const team of match.contenders)select.add(new Option(team.teamName,team.id));
  function report(m,teamId) {
