@@ -10,6 +10,25 @@ import {Store} from '../lib/store.mjs';
 import {createApp} from '../server.mjs';
 const url='https://athletics.case.edu/boxscore.aspx?id=9897&path=msoc';
 const html=readFileSync(new URL('./fixtures/boxscore-9897.html',import.meta.url),'utf8');
+const oberlinUrl='https://athletics.case.edu/sports/mens-soccer/stats/2026/oberlin/boxscore/9898';
+test('descriptive soccer URLs fetch the legacy endpoint and retain Oberlin data with an untimed play',async()=>{
+ const canonical='https://athletics.case.edu/boxscore.aspx?id=9898&path=msoc';
+ assert.equal(boxScoreUrl(oberlinUrl),canonical);
+ assert.equal(boxScoreUrl(oberlinUrl+'/?view=individual#stats'),canonical);
+ assert.equal(boxScoreUrl(oberlinUrl.replace('athletics.case.edu','woosterathletics.com')),canonical.replace('athletics.case.edu','woosterathletics.com'));
+ for(const bad of [oberlinUrl.replace('mens-soccer','womens-soccer'),oberlinUrl.replace('athletics.case.edu','example.com'),oberlinUrl+'/extra'])assert.throws(()=>boxScoreUrl(bad));
+ const saved=readFileSync(new URL('./fixtures/boxscore-9898.html',import.meta.url),'utf8');
+ const fetched=await fetchBoxScore(oberlinUrl,{fetcher:async(u)=>{assert.equal(u,canonical);return new Response(saved,{headers:{'Content-Type':'text/html'}});}});
+ const b=parseBoxScore(fetched.html,oberlinUrl);
+ assert.equal(b.sourceUrl,canonical);
+ assert.equal(b.teams.length,2);
+ assert.ok(b.players.length>22);
+ assert.ok(b.periods.flatMap(p=>p.plays).some(p=>p.seconds===null&&p.description==='Foul on Surface, Kinton'));
+ assert.equal(b.timingComplete,false);
+ assert.ok(b.players.every(p=>p.derivedSeconds===null));
+ assert.ok(b.warnings.some(w=>w.includes('no published clock')));
+ assert.deepEqual(b.players,parseBoxScore(saved,canonical).players);
+});
 function xmlMatch(b) {
  return {gameId:'11111111-1111-1111-1111-111111111111',importedAt:'2026-09-12T00:00:00Z',contenders:[{id:'a',teamName:'Case Western Reserve University'},{id:'b',teamName:'College of Wooster'}],participants:b.players.map(p=>({id:'xml-'+p.id,contenderId:p.teamKey==='CWRU'?'a':'b',name:p.name,numberText:p.name==='Louis Markin'?'99':p.jersey,type:'player'})),events:[{id:'shot',action:{type:'shot',contender:'a'}}],raw:{xml:'original'}};
 }
