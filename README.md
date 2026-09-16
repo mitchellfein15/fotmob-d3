@@ -89,4 +89,22 @@ Version 1 starts at 6.0. Goals add 1.05 (1.25 for defenders), assists 0.70, and 
 
 Overlapping player shots and goals use the maximum of XML and official counts, never their sum. Assists and goalkeeper statistics come from the official box score. Team shot/goal totals independently use the higher source totals; differences from summed player maxima can occur, and unassigned team shots are not invented for players. Raw sources remain available for inspection. When a match box score is attached, its roster determines which players appear in ratings. XML statistics are used only for players linked unambiguously by normalized name within the same mapped team; jersey differences are allowed. Unmatched, ambiguous, and wrong-team XML identities are excluded from ratings and listed for review under Lineups & minutes. Their source records are retained and their events are not reassigned. Official players without an XML match still appear using box-score statistics. Without an attached box score, all XML players remain eligible.
 
-Playing time uses reconstructed seconds, then goalkeeper clock, then published minutes. Minutes do not scale points; appearances under 15 minutes are labeled brief. Players without recorded appearances have no rating. Unknown positions use generic outfield weights. Missing metrics contribute no points; XML-only and box-score-only coverage is labeled explicitly. This feature measures available on-ball actions for fun and does not rate off-ball movement or use screenshot-only xG.
+Playing time uses reconstructed seconds, then goalkeeper clock, then published minutes. Minutes do not scale points; appearances under 15 minutes are labeled brief. Players without recorded appearances have no rating. Unknown positions use generic outfield weights. Missing metrics contribute no points; rating coverage identifies the available sources. This experimental score uses recorded actions and optional tracker effort, not a calibrated overall assessment or screenshot-only xG.
+
+## Pasting tracker data
+
+Load a match, open **Import details → Tracker data**, select the team, and paste the tab-separated table including its header. Save to update ratings. Empty the text and save to remove that team's tracker data. Data is saved per match and team and survives reimporting the same XML. The form lists unmatched or ambiguous tracker names; these add no points and do not create new roster players.
+
+`parseTrackerData(rawTSV)` in `dist/tracker.js` returns a Map keyed by `nameKey(name)` (lowercase, letters only). Both helpers are also exported from `dist/ratings.js`. Blank numeric cells become `null`; invalid numbers and duplicate normalized names cause an error. Numbers such as `1,274` become `1274`. All eight physical metrics are attached as `player.physicalStats`, or `null` if there is no unique match. Existing official roster exclusions still apply.
+
+Programmatic use:
+
+```js
+import {parseTrackerData, ratedPlayers} from './dist/ratings.js';
+const tracker = parseTrackerData(rawTSV);
+match.trackerData ??= {};
+match.trackerData[teamId] = rawTSV;
+const players = ratedPlayers(match, teamId);
+```
+
+Tracker weights, caps, and the work-rate baseline are editable at the top of `dist/ratings.js`. The defaults assume total distance in kilometres and hard running/sprinting in metres. Work rate and top speed retain the export's units. Work rate earns 0.01 per unit above 50, capped at 0.40; distance earns 0.02 per kilometre, capped at 0.30; high-intensity running earns 0.0002 per hard-running metre plus 0.0005 per sprinting metre, capped at 0.40 combined. Effort counts and top speed are displayed but do not add rating points. Missing data adds no points or penalties. Ratings retain the existing 1–10 clamp and one-decimal rounding.

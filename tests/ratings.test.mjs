@@ -61,7 +61,7 @@ test('advanced contributions use role weights, target accuracy, turnover penalti
  const savedRating=ratedPlayers(m,'c')[0].rating;
  m.events[2].action.outcome='off_target';assert.ok(ratedPlayers(m,'c')[0].rating<savedRating);
  m.events=Array.from({length:100},()=>({action:{type:'pass',participant:'p',outcome:'intercepted'}}));
- assert.equal(points()['Passes intercepted'],-1);
+ assert.equal(points()['Passes intercepted'],-1.5);
  for(let i=0;i<100;i++)add({type:'duel',unsuccessfulParticipant:'p'});
  for(let i=0;i<10;i++)add({type:'red_card'});
  o.goalkeeper={seconds:5400,saves:0,goalsAgainst:10};

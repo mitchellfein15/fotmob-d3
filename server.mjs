@@ -7,6 +7,7 @@ import {gameId} from './lib/identity.mjs';
 import {importXml} from './lib/xml-import.mjs';
 import {fetchBoxScore,parseBoxScore,previewBoxScore,boxScoreUrl} from './lib/boxscore.mjs';
 import {randomUUID} from 'node:crypto';
+import {parseTrackerData} from './dist/tracker.js';
 const root=fileURLToPath(new URL('./dist/',import.meta.url));
 const types={'.html':'text/html; charset=utf-8','.css':'text/css; charset=utf-8','.js':'text/javascript; charset=utf-8'};
 const summary=({raw,...match})=>match;
@@ -31,11 +32,21 @@ export function createApp(store=new Store(),{boxFetcher=fetchBoxScore}={}) {
      }
      send(200,summary(match));return;
     }
-    if(req.method==='POST'&&['/api/import','/api/boxscore/preview','/api/boxscore/attach'].includes(url.pathname)) {
+    if(req.method==='POST'&&['/api/import','/api/tracker','/api/boxscore/preview','/api/boxscore/attach'].includes(url.pathname)) {
      if(req.headers['x-matchroom-request']!=='1'||!req.headers['content-type']?.startsWith('application/json')){send(403,{error:'Use the local app to import a match.'});return;}
      const chunks=[];let size=0;
      for await(const chunk of req){size+=chunk.length;if(size>25*1024*1024){send(413,{error:'Request too large. Use an XML export under 20 MB.'});return;}chunks.push(chunk);}
      let body;try{body=JSON.parse(Buffer.concat(chunks).toString('utf8'));}catch{send(400,{error:'Invalid import request.'});return;}
+     if(url.pathname==='/api/tracker') {
+      const match=await store.match(gameId(body?.gameId));if(!match)throw Error('Load an XML match first.');
+      if(!match.contenders.some(c=>c.id===body.teamId))throw Error('Choose a team in this match.');
+      if(typeof body.tsv!=='string'||body.tsv.length>1024*1024)throw Error('Paste tracker data under 1 MB.');
+      parseTrackerData(body.tsv);
+      match.trackerData??={};
+      if(body.tsv.trim())match.trackerData[body.teamId]=body.tsv;
+      else delete match.trackerData[body.teamId];
+      await store.save(match);send(200,summary(match));return;
+     }
      if(url.pathname==='/api/boxscore/preview') {
       const match=await store.match(gameId(body?.gameId));if(!match)throw Error('Load an XML match first.');
       const source=body.html!==undefined?{html:body.html,url:boxScoreUrl(body.url)}:await boxFetcher(body.url);
@@ -63,6 +74,7 @@ export function createApp(store=new Store(),{boxFetcher=fetchBoxScore}={}) {
      }
      const match=importXml(body?.xml,body?.filename);
      const previous=await store.match(match.gameId);
+     if(previous?.trackerData)match.trackerData=previous.trackerData;
      if(previous?.boxScore){match.boxScore=previous.boxScore;for(const k of ['boxScoreHtml','boxScoreHistory'])if(previous.raw?.[k])match.raw[k]=previous.raw[k];}
      await store.save(match);
      send(200,summary(match));return;

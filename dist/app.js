@@ -1,6 +1,7 @@
 import {ratedPlayers,teamStatistics,RATING_VERSION} from './ratings.js';
 import {mountImports} from './import-ui.js';
 import {mountBoxScore,playerTiming} from './boxscore-ui.js';
+import {mountTracker,trackerDetails} from './tracker-ui.js';
 const $=s=>document.querySelector(s);
 const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const label=s=>String(s??'').replaceAll('_',' ');
@@ -16,7 +17,7 @@ function loadMatch(m) {
  $('.score strong').textContent=goals.join(' : ');
  $('.score span').textContent='Higher source totals';
  $('.notice strong').textContent=RATING_VERSION+' · player ratings';
- $('.notice p').textContent='Ratings use available on-ball statistics. Higher shot and goal counts are selected, never added. Select a player to see the breakdown.';
+ $('.notice p').textContent='Ratings use available match statistics and attached tracker data. Higher shot and goal counts are selected, never added. Select a player to see the breakdown.';
  $('#match-header').hidden=false;$('#match-notice').hidden=false;
  render();
 }
@@ -36,11 +37,11 @@ function renderPlayers() {
  content.querySelectorAll('[data-player]').forEach(b=>b.onclick=()=>showPlayer(b.dataset.player));
 }
 function ratingDetails(p) {
- return `<h3>${RATING_VERSION} · ${p.rating?.toFixed(1)??'No rating'}</h3><p>${esc(p.coverage)} · ${esc(p.position)}</p><dl><dt>Starting score</dt><dd>${p.rating===null?'—':'6.00'}</dd>${p.contributions.map(c=>`<dt>${esc(c.label)}</dt><dd>${c.points>0?'+':''}${c.points.toFixed(2)}</dd>`).join('')}</dl><p class="caption">${p.rating===null?'No recorded appearance.':'Total rounded to one decimal and limited to 1–10. Missing statistics add no points. Short appearances are not scaled up.'} This is a fun, experimental on-ball score, not a calibrated overall assessment.</p>`;
+ return `<h3>${RATING_VERSION} · ${p.rating?.toFixed(1)??'No rating'}</h3><p>${esc(p.coverage)} · ${esc(p.position)}</p><dl><dt>Starting score</dt><dd>${p.rating===null?'—':'6.00'}</dd>${p.contributions.map(c=>`<dt>${esc(c.label)}</dt><dd>${c.points>0?'+':''}${c.points.toFixed(2)}</dd>`).join('')}</dl><p class="caption">${p.rating===null?'No recorded appearance.':'Total rounded to one decimal and limited to 1–10. Missing statistics add no points. Short appearances are not scaled up.'} This is a fun, experimental match score, not a calibrated overall assessment.</p>`;
 }
 function showPlayer(id) {
  const p=ratedPlayers(match,contenders[team].id).find(p=>p.id===id);
- $('#detail-body').innerHTML=`<div class="eyebrow">PLAYER SNAPSHOT</div><h2>${esc(p.name)}</h2><p class="muted">${esc(contenders[team].teamName)} · #${esc(p.numberText??'—')}</p>${ratingDetails(p)}${playerTiming(match,p.id)}<dl><dt>Completed passes</dt><dd>${p.completed} / ${p.passes}</dd><dt>Duels won / lost</dt><dd>${p.duelsWon} / ${p.duelsLost}</dd><dt>Shots / blocks</dt><dd>${p.shots} / ${p.blocks}</dd><dt>Cards</dt><dd>${p.cards}</dd></dl>`;$('#detail').showModal();
+ $('#detail-body').innerHTML=`<div class="eyebrow">PLAYER SNAPSHOT</div><h2>${esc(p.name)}</h2><p class="muted">${esc(contenders[team].teamName)} · #${esc(p.numberText??'—')}</p>${ratingDetails(p)}${trackerDetails(p.physicalStats)}${playerTiming(match,p.id)}<dl><dt>Completed passes</dt><dd>${p.completed} / ${p.passes}</dd><dt>Duels won / lost</dt><dd>${p.duelsWon} / ${p.duelsLost}</dd><dt>Shots / blocks</dt><dd>${p.shots} / ${p.blocks}</dd><dt>Cards</dt><dd>${p.cards}</dd></dl>`;$('#detail').showModal();
 }
 function renderTimeline() {
  const types=[...new Set(events.map(e=>e.action.type))].sort();
@@ -52,6 +53,8 @@ function renderData() {
  const c=match.counts||{},xml=match.source==='spiideo-xml';
  const totals=match.totals||contenders.map(c=>{const passes=events.filter(e=>e.action.type==='pass'&&e.action.fromContender===c.id);return {team:c.teamName,passes:passes.length,completed:passes.filter(e=>e.action.outcome==='successful').length,shots:events.filter(e=>e.action.type==='shot'&&e.action.contender===c.id).length,goals:events.filter(e=>e.action.type==='goal'&&e.action.contender===c.id).length};});
  content.innerHTML=`<div class="section-title"><h2>Import details</h2><span>${esc(new Date(match.importedAt).toLocaleString())}</span></div><div class="import-grid"><article class="panel"><h3>${esc(match.sourceFilename||'Saved match')}</h3><dl><dt>XML entries</dt><dd>${c.instances??'—'}</dd><dt>Repeated player/team entries</dt><dd>${c.representations??'—'}</dd><dt>Identical action rows collapsed</dt><dd>${c.duplicateRows??'—'}</dd><dt>Events retained</dt><dd>${events.length}</dd><dt>Player identities by team</dt><dd>${participants.length}</dd></dl><button id="export">Download match JSON</button>${xml?`<p><a class="download" href="/api/matches/${encodeURIComponent(match.gameId)}/source" download>Download original XML</a></p>`:''}</article><article class="panel"><h3>What still needs checking</h3><ul class="checklist">${(match.warnings||['Completeness and playing time remain unverified.']).map(w=>`<li>${esc(w)}</li>`).join('')}</ul></article></div><article class="panel"><h3>Compare with Spiideo</h3><p>These totals are calculated from retained events. Compare them with the game’s statistics in Spiideo before relying on them.</p><div class="table-wrap"><table><thead><tr><th>Team</th><th>Passes</th><th>Completed</th><th>Shots</th><th>Goals</th></tr></thead><tbody>${totals.map(t=>`<tr><td>${esc(t.team)}</td><td>${t.passes}</td><td>${t.completed}</td><td>${t.shots}</td><td>${t.goals}</td></tr>`).join('')}</tbody></table></div><p class="caption">Reimporting the same events reuses the saved match. A changed export is saved separately so you can compare revisions.</p></article>`;
+ const trackerPanel=document.createElement('article');trackerPanel.className='panel';content.prepend(trackerPanel);
+ mountTracker(trackerPanel,match,loadMatch);
  $('#export').onclick=()=>{const url=URL.createObjectURL(new Blob([JSON.stringify(match,null,2)],{type:'application/json'}));const a=document.createElement('a');a.href=url;a.download='match-'+match.gameId+'.json';a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);};
 }
 document.querySelectorAll('[data-view]').forEach(b=>b.onclick=()=>{view=b.dataset.view;render();});

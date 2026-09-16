@@ -1,4 +1,6 @@
 import {playersFor} from './model.js';
+import {nameKey,parseTrackerData} from './tracker.js';
+export {nameKey,parseTrackerData} from './tracker.js';
 
 export const RATING_VERSION = 'Experimental v1';
 
@@ -13,7 +15,7 @@ export const RATING_WEIGHTS = {
  midfielderPassing: 0.055,
  progressivePass: 0.04,
  midfielderOrDefenderProgressivePass: 0.06,
- interceptedPass: 0.02,
+ interceptedPass: 0.04,
  duelWon: 0.20,
  duelLost: 0.06,
  block: 0.16,
@@ -23,6 +25,10 @@ export const RATING_WEIGHTS = {
  save: 0.18,
  goalConceded: 0.30,
  cleanSheet: 0.60,
+ workRate: 0.01, // Per tracker work-rate unit above the baseline.
+ distanceCovered: 0.02, // Per kilometre.
+ hardRunning: 0.0002, // Per metre; combined with sprinting below.
+ sprinting: 0.0005, // Per metre.
 };
 
 // Maximum total points each category can add or deduct per match.
@@ -43,14 +49,18 @@ export const RATING_CAPS = {
  discipline: 2.00,
  saves: 1.80,
  goalsConceded: 2.00,
+ workRate: 0.30,
+ distanceCovered: 0.30,
+ highIntensityRunning: 0.30,
 };
 
 export const RATING_RULES = {
  baseRating: 6.0,
  minimumRating: 1.0,
  maximumRating: 10.0,
- expectedPassCompletion: 0.70, // 70%; passing points measure performance above/below this.
+ expectedPassCompletion: 0.60, // 70%; passing points measure performance above/below this.
  cleanSheetMinimumMinutes: 60,
+ workRateBaseline: 50.0,
 };
 
 const clamp = (n,min,max) => Math.min(max,Math.max(min,n));
@@ -74,15 +84,25 @@ export function teamStatistics(match,id) {
 
 export function ratedPlayers(match,teamId) {
  const box=match.boxScore;
+ const tracker=parseTrackerData(match.trackerData?.[teamId] ?? '');
  const rows=playersFor(match.events,match.participants,teamId).filter(p=>!excludedPlayer(match,{...p,contenderId:teamId}));
  const officialRows=box?.players.filter(p=>box.teamMapping[p.teamKey]===teamId)||[];
  for(const o of officialRows) {
   const link=box.links.find(l=>l.officialId===o.id);
   if(!rows.some(p=>p.id===link?.participantId)) rows.push({id:`official:${o.id}`,name:o.name,numberText:o.jersey,passes:0,completed:0,progressivePasses:0,passesIntercepted:0,duelsWon:0,duelsLost:0,shots:0,shotsOnTarget:0,setPiecesExecuted:0,blocks:0,cards:0,events:0,official:o});
  }
+ // Do not assign one physical record to multiple same-name player identities.
+ const trackerKey=p=>{
+  const official=p.official||box?.players.find(o=>box.links.some(l=>l.officialId===o.id&&l.participantId===p.id));
+  return tracker.has(nameKey(p.name))?nameKey(p.name):nameKey(official?.name);
+ };
+ const keyCounts=new Map();
+ for(const p of rows){const key=trackerKey(p);keyCounts.set(key,(keyCounts.get(key)||0)+1);}
  return rows.map(p=>{
   const link=box?.links.find(l=>l.participantId===p.id);
   const o=p.official||box?.players.find(o=>o.id===link?.officialId);
+  const key=trackerKey(p);
+  const physicalStats=keyCounts.get(key)===1?tracker.get(key)??null:null;
   const count=type=>match.events.filter(e=>e.action.type===type&&e.action.participant===p.id).length;
   const goals=Math.max(count('goal'),value(o?.stats.goals));
   const shots=Math.max(p.shots,value(o?.stats.shots),goals);
@@ -109,8 +129,14 @@ export function ratedPlayers(match,teamId) {
    add('Goals conceded',-Math.min(RATING_CAPS.goalsConceded,value(o.goalkeeper.goalsAgainst)*RATING_WEIGHTS.goalConceded));
    if(o.goalkeeper.goalsAgainst===0&&minutes>=RATING_RULES.cleanSheetMinimumMinutes)add('Clean sheet',RATING_WEIGHTS.cleanSheet);
   }
+  if(physicalStats) {
+   add('Work rate bonus',Math.min(RATING_CAPS.workRate,Math.max(0,value(physicalStats.averageWorkRate)-RATING_RULES.workRateBaseline)*RATING_WEIGHTS.workRate));
+   add('Distance covered',Math.min(RATING_CAPS.distanceCovered,value(physicalStats.totalDistance)*RATING_WEIGHTS.distanceCovered));
+   add('High-intensity running',Math.min(RATING_CAPS.highIntensityRunning,value(physicalStats.hardRunning)*RATING_WEIGHTS.hardRunning+value(physicalStats.sprinting)*RATING_WEIGHTS.sprinting));
+  }
   const rating=played?Math.round(clamp(RATING_RULES.baseRating+contributions.reduce((s,c)=>s+c.points,0),RATING_RULES.minimumRating,RATING_RULES.maximumRating)*10)/10:null;
-  const coverage=!played?'Did not play':minutes!==null&&minutes<15?'Brief appearance':o&&p.events>0?'XML + box score':o?'Box score only':'XML only';
-  return {...p,official:o,goals,shots,assists,minutes,position,role,rating,contributions,coverage};
+  const baseCoverage=!played?'Did not play':minutes!==null&&minutes<15?'Brief appearance':o&&p.events>0?'XML + box score':o?'Box score only':'XML only';
+  const coverage=played&&physicalStats?baseCoverage.replace(' only','')+' + tracker':baseCoverage;
+  return {...p,official:o,physicalStats,goals,shots,assists,minutes,position,role,rating,contributions,coverage};
  }).sort((a,b)=>(b.rating??-1)-(a.rating??-1)||a.name.localeCompare(b.name));
 }

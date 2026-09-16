@@ -4,3 +4,5 @@
 .confirm-line{flex-direction:row;align-items:flex-start}.confirm-line input{margin-top:4px;flex-shrink:0}.panel input[type=url]{width:100%;min-width:0}.panel details{margin:14px 0}.panel summary{cursor:pointer}.table-wrap details{font-size:13px}.table-wrap details div{white-space:nowrap}.panel #box-draft{margin-top:24px}nav{flex-wrap:wrap;gap:20px}#box-attached .table-wrap{margin:14px 0}
 
 .rating{color:var(--text);font-weight:750}.rating-good{background:var(--accent);color:#18201b}
+
+textarea{font:inherit;outline-offset:5px;width:100%;resize:vertical;min-height:160px;border:1px solid var(--line);border-radius:6px;background:var(--bg);padding:10px;color:var(--text);white-space:pre;overflow:auto}
