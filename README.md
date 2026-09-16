@@ -2,6 +2,24 @@
 
 Local soccer analysis from Spiideo tag-export XML files. Node.js 22+ is required.
 
+## Admin access and viewer mode
+
+The app opens in read-only viewer mode. Anyone can choose saved matches, browse players and ratings, inspect timelines, and open lineup details. All data-changing API requests require an authenticated admin session.
+
+Set a private password of at least 12 characters in the server's environment before starting it. For local PowerShell use a hidden prompt (the password is not echoed or placed in shell history):
+
+```powershell
+$credential = Get-Credential -UserName admin -Message 'Choose your Matchroom admin password (12+ characters)'
+$env:ADMIN_PASSWORD = $credential.GetNetworkCredential().Password
+node server.mjs
+```
+
+Click **Admin sign in**, enter that password, and open the **Admin dashboard**. It contains XML import, official box-score preview/attachment (including saved HTML), tracker import/replacement/removal, and tactical pitch editing. Move players using drag or arrow keys, then select **Save positions** for each team. **Reset positions** restores the default layout; select Save positions to publish the reset. Public Lineups & minutes always displays the saved layout. Unsaved pitch edits are discarded when leaving the dashboard. Legacy browser-only positions are not published automatically.
+
+Sign out returns to viewer mode. Sessions last eight hours and are invalidated by sign-out or a server restart. Five failed sign-in attempts from one address trigger a 15-minute cooldown. Without ADMIN_PASSWORD the server remains read-only; short configured passwords fail startup. Change the environment password and restart to rotate credentials and invalidate all sessions. No password is bundled in frontend files or stored in browser storage.
+
+This is a deployment preparation step: the server still binds to 127.0.0.1 and only accepts its local Host/Origin. Public hosting still requires explicit host/origin configuration, HTTPS, and persistent storage for the storage directory. NODE_ENV=production marks session cookies Secure and requires HTTPS. Do not expose this local server directly by merely removing the host check. Match data and source downloads remain publicly readable by design. Pitch positions now live in the saved match on the server and survive reimports; existing browser-local positions remain untouched but are no longer used.
+
 ## Start
 
 Install the XML parser once with `npm.cmd install` on Windows (or `npm install` elsewhere), then run:
@@ -13,10 +31,10 @@ Open http://127.0.0.1:4173. Matchroom runs locally and imports do not contact Sp
 ## Import a game
 
 1. In Spiideo, open the recording, choose **Info → Export tags**.
-2. In Matchroom, choose the downloaded XML and click **Import XML**.
+2. In Matchroom, sign in as admin, open **Admin dashboard → XML import**, choose the downloaded XML, and click **Import XML**.
 3. Review **Players**, **Event timeline**, and **Import details**.
 
-Imports persist in the local, ignored `storage/` directory. The most recently selected saved match loads after a refresh. An empty workspace shows an import prompt; no sample statistics are mixed into imports.
+Imports persist in the local, ignored `storage/` directory. The most recently selected saved match loads after a refresh. An empty workspace explains that an admin must import a match; no sample statistics are mixed into imports.
 
 The same event content, even in a renamed file, reuses its saved match. A revised export with changed events becomes a separate snapshot so previous data remains available. Saved identity is derived from event content, not the UUID in the export filename. Without a match identifier in the XML, two exports with exactly the same event content cannot be distinguished.
 
@@ -49,7 +67,7 @@ The supplied Wooster / Case Western export produces 1,421 retained events from 3
 
 ## Add official box-score information
 
-After importing XML, open **Lineups & minutes**. Paste a men's soccer box-score URL from **athletics.case.edu** or **woosterathletics.com**, then click **Preview box score**. Supported links use the form:
+After importing XML, sign in and open **Admin dashboard → Official box score**. Paste a men's soccer box-score URL from **athletics.case.edu** or **woosterathletics.com**, then click **Preview box score**. Supported links use the form:
 
     https://athletics.case.edu/boxscore.aspx?id=9897&path=msoc
 
@@ -93,7 +111,7 @@ Playing time uses reconstructed seconds, then goalkeeper clock, then published m
 
 ## Pasting tracker data
 
-Load a match, open **Import details → Tracker data**, select the team, and paste the tab-separated table including its header. Save to update ratings. Empty the text and save to remove that team's tracker data. Data is saved per match and team and survives reimporting the same XML. The form lists unmatched or ambiguous tracker names; these add no points and do not create new roster players.
+Load a match, sign in and open **Admin dashboard → Tracker data**, select the team, and paste the tab-separated table including its header. Save to update ratings. Empty the text and save to remove that team's tracker data. Data is saved per match and team and survives reimporting the same XML. The form lists unmatched or ambiguous tracker names; these add no points and do not create new roster players.
 
 `parseTrackerData(rawTSV)` in `dist/tracker.js` returns a Map keyed by `nameKey(name)` (lowercase, letters only). Both helpers are also exported from `dist/ratings.js`. Blank numeric cells become `null`; invalid numbers and duplicate normalized names cause an error. Numbers such as `1,274` become `1274`. All eight physical metrics are attached as `player.physicalStats`, or `null` if there is no unique match. Existing official roster exclusions still apply.
 
@@ -113,6 +131,6 @@ Tracker weights, caps, and the work-rate baseline are editable at the top of `di
 
 Open **Lineups & minutes** for a dark SVG pitch and substitute bench. Recorded starters are evenly spread across fixed GK, DEF, MID and FWD bands (attack at the top); empty bands remain empty. Unknown lineup status or positions appear separately until source records identify them. No exact tactical roles are inferred.
 
-Drag a starter anywhere inside the pitch, or focus a player and use arrow keys. Positions persist in this browser per match/team/player; **Reset positions** restores the automatic layout for the selected team. Click a player (including substitutes) or press Enter for the rating breakdown.
+In **Admin dashboard → Pitch positions**, drag a starter anywhere inside the pitch, or focus a player and use arrow keys. Select **Save positions** to publish that team’s layout to the server. **Reset positions** restores the automatic layout for the selected team; save to publish the reset. Everyone can click a player (including substitutes) or press Enter for the rating breakdown in **Lineups & minutes**.
 
 Player images use `avatarUrl` / `photoUrl` (or official `avatarUrl`), and teams use `crestUrl` / `logoUrl`. Local and HTTPS assets are supported, with initials when images are absent or fail. Ratings are green at 7.0+, orange at 6.0–6.9, red below 6.0, and neutral when unavailable. D3 7.9.0 is vendored in `dist/vendor` so the layout works without a CDN.

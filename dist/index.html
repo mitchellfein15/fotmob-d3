@@ -1,12 +1,15 @@
 <!doctype html>
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="description" content="Local D3 soccer analysis from Spiideo XML exports"><title>D3 Matchroom</title><link rel="stylesheet" href="/style.css"></head><body>
-<header><a class="brand" href="/">D3<span> / </span>MATCHROOM</a><span class="private">LOCAL WORKSPACE</span></header>
+<header><a class="brand" href="/">D3<span> / </span>MATCHROOM</a><div class="admin-access"><span id="access-mode" class="private">VIEW ONLY</span><button id="admin-open">Admin sign in</button><button id="admin-logout" hidden>Sign out</button></div></header>
 <main><div class="eyebrow">MEN’S SOCCER <span>/</span> MATCH ANALYSIS</div>
 <section id="imports" class="panel import-panel" aria-label="Match imports"></section>
 <section id="match-header" class="match" hidden><div class="team"><div class="crest"></div><div><small>TEAM</small><h1></h1></div></div><div class="score"><strong>— : —</strong><span>Goals in imported events</span></div><div class="team away"><div><small>TEAM</small><h1></h1></div><div class="crest"></div></div></section>
 <div id="match-notice" class="notice" hidden><div><strong>Experimental player ratings</strong><p>Playing time and completeness remain unverified.</p></div><button id="manage">Import details</button></div>
 <div id="summary" class="summary" hidden></div>
 <nav aria-label="Match views"><button data-view="players" class="active">Players</button><button data-view="timeline">Event timeline</button><button data-view="lineups">Lineups & minutes</button><button data-view="data">Import details</button></nav>
-<section id="content"></section><footer>D3 MATCHROOM <span>Private analysis workspace · Spiideo XML exports</span></footer></main>
+<section id="admin-heading" class="panel" hidden><div class="eyebrow">ADMIN WORKSPACE</div><h2>Manage match data</h2><p>Import a match, attach official records and tracker data, and publish your tactical lineup. Select a saved match above to manage it.</p><div class="admin-links"><a href="#admin-imports">XML import</a><a href="#admin-boxscore">Official box score</a><a href="#admin-tracker">Tracker data</a><a href="#admin-pitch">Pitch positions</a></div></section>
+<section id="admin-imports" class="panel import-panel" hidden></section>
+<section id="content"></section><footer>D3 MATCHROOM <span>Match analysis · Spiideo XML exports</span></footer></main>
+<dialog id="admin-dialog"><button id="admin-close" class="close" aria-label="Close admin sign in">×</button><form id="admin-form"><div class="eyebrow">ADMIN ACCESS</div><h2>Sign in to manage data</h2><p>Unlock imports, tracker updates, and pitch editing.</p><label>Admin password<input id="admin-password" type="password" autocomplete="current-password" required maxlength="1024"></label><p id="admin-status" role="status" aria-live="polite"></p><button type="submit">Sign in</button></form></dialog>
 <dialog id="detail"><button id="close" class="close" aria-label="Close player details">×</button><div id="detail-body"></div></dialog><script src="/vendor/d3.min.js"></script><script type="module" src="/app.js"></script></body></html>
 

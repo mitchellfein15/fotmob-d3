@@ -1,3 +1,4 @@
+import {login,TEST_PASSWORD} from './helpers/auth.mjs';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
@@ -63,9 +64,10 @@ test('tracker API validates, saves, reloads, preserves on XML reimport and clear
  const xml='<file><ALL_INSTANCES>'+['A','B'].map((team,i)=>`<instance><ID>${i}</ID><start>1</start><end>2</end><code>pass</code><label><text>pass</text></label><label><text>${team}</text><group>fromTeam</group></label><label><text>Alex Eby</text><group>fromPlayer</group></label></instance>`).join('')+'</ALL_INSTANCES></file>';
  let saved=importXml(xml);
  const store={match:async id=>id===saved.gameId?structuredClone(saved):null,save:async m=>{saved=structuredClone(m);}};
- const app=createApp(store);app.listen(0,'127.0.0.1');await once(app,'listening');
+ const app=createApp(store,{adminPassword:TEST_PASSWORD});app.listen(0,'127.0.0.1');await once(app,'listening');
  const base='http://127.0.0.1:'+app.address().port,teamId=saved.contenders[0].id;
- const post=(route,body)=>fetch(base+'/api/'+route,{method:'POST',headers:{'Content-Type':'application/json','X-Matchroom-Request':'1'},body:JSON.stringify(body)});
+ const cookie=await login(base);
+ const post=(route,body)=>fetch(base+'/api/'+route,{method:'POST',headers:{Cookie:cookie,'Content-Type':'application/json','X-Matchroom-Request':'1'},body:JSON.stringify(body)});
  const body={gameId:saved.gameId,teamId,tsv:sample};
  try {
   assert.equal((await post('tracker',body)).status,200);

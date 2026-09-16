@@ -1,5 +1,5 @@
 import {ratedPlayers,teamStatistics,RATING_VERSION} from './ratings.js';
-import {mountImports} from './import-ui.js';
+import {mountImports,api} from './import-ui.js';
 import {mountBoxScore,playerTiming} from './boxscore-ui.js';
 import {mountTracker,trackerDetails} from './tracker-ui.js';
 import {mountPitch} from './pitch.js';
@@ -8,6 +8,7 @@ const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&
 const label=s=>String(s??'').replaceAll('_',' ');
 const time=n=>`${Math.floor(n/60)}:${String(Math.floor(n%60)).padStart(2,'0')}`;
 let match=null,events=[],participants=[],contenders=[],view='players',team=0,filter='',eventType='all';
+let admin=false;
 const content=$('#content');
 function loadMatch(m) {
  match=m;events=m.events;participants=m.participants;contenders=m.contenders;team=0;filter='';eventType='all';
@@ -23,12 +24,18 @@ function loadMatch(m) {
  render();
 }
 function render() {
- $('#summary').hidden=!match;
+ if(view==='admin'&&!admin)view='players';
+ $('#admin-heading').hidden=!(admin&&view==='admin');
+ $('#admin-imports').hidden=!(admin&&view==='admin');
+ $('#summary').hidden=!match||view==='admin';
+ $('#match-header').hidden=!match||view==='admin';
+ $('#match-notice').hidden=!match||view==='admin';
+ $('#admin-open').setAttribute('aria-pressed',String(view==='admin'));
  document.querySelectorAll('[data-view]').forEach(b=>{b.classList.toggle('active',b.dataset.view===view);b.setAttribute('aria-current',b.dataset.view===view?'page':'false');});
- if(!match){content.innerHTML='<div class="panel"><h2>No match imported yet</h2><p>Choose a Spiideo XML export above to load player statistics and the event timeline.</p></div>';return;}
+ if(!match){content.innerHTML=`<div class="panel"><h2>No match available yet</h2><p>${admin?'Open the Admin dashboard and import a Spiideo XML export to get started.':'An admin can import a match. Once available, you can browse players, ratings, and match events here.'}</p></div>`;return;}
  const passes=events.filter(e=>e.action.type==='pass');
  $('#summary').innerHTML=[['Imported events',events.length.toLocaleString()],['Passes completed',`${passes.filter(e=>e.action.outcome==='successful').length} / ${passes.length}`],['Shots',contenders.reduce((sum,c)=>sum+teamStatistics(match,c.id).shots,0)],['Source',match.source==='spiideo-xml'?'XML export':'Saved match']].map(([k,v])=>`<div><span>${k}</span><strong>${v}</strong></div>`).join('');
- if(view==='players')renderPlayers();else if(view==='timeline')renderTimeline();else if(view==='lineups'){
+ if(view==='admin')renderAdmin();else if(view==='players')renderPlayers();else if(view==='timeline')renderTimeline();else if(view==='lineups'){
   content.replaceChildren();
   const pitch=document.createElement('article'),records=document.createElement('div');
   content.append(pitch,records);
@@ -60,12 +67,50 @@ function renderData() {
  const c=match.counts||{},xml=match.source==='spiideo-xml';
  const totals=match.totals||contenders.map(c=>{const passes=events.filter(e=>e.action.type==='pass'&&e.action.fromContender===c.id);return {team:c.teamName,passes:passes.length,completed:passes.filter(e=>e.action.outcome==='successful').length,shots:events.filter(e=>e.action.type==='shot'&&e.action.contender===c.id).length,goals:events.filter(e=>e.action.type==='goal'&&e.action.contender===c.id).length};});
  content.innerHTML=`<div class="section-title"><h2>Import details</h2><span>${esc(new Date(match.importedAt).toLocaleString())}</span></div><div class="import-grid"><article class="panel"><h3>${esc(match.sourceFilename||'Saved match')}</h3><dl><dt>XML entries</dt><dd>${c.instances??'—'}</dd><dt>Repeated player/team entries</dt><dd>${c.representations??'—'}</dd><dt>Identical action rows collapsed</dt><dd>${c.duplicateRows??'—'}</dd><dt>Events retained</dt><dd>${events.length}</dd><dt>Player identities by team</dt><dd>${participants.length}</dd></dl><button id="export">Download match JSON</button>${xml?`<p><a class="download" href="/api/matches/${encodeURIComponent(match.gameId)}/source" download>Download original XML</a></p>`:''}</article><article class="panel"><h3>What still needs checking</h3><ul class="checklist">${(match.warnings||['Completeness and playing time remain unverified.']).map(w=>`<li>${esc(w)}</li>`).join('')}</ul></article></div><article class="panel"><h3>Compare with Spiideo</h3><p>These totals are calculated from retained events. Compare them with the game’s statistics in Spiideo before relying on them.</p><div class="table-wrap"><table><thead><tr><th>Team</th><th>Passes</th><th>Completed</th><th>Shots</th><th>Goals</th></tr></thead><tbody>${totals.map(t=>`<tr><td>${esc(t.team)}</td><td>${t.passes}</td><td>${t.completed}</td><td>${t.shots}</td><td>${t.goals}</td></tr>`).join('')}</tbody></table></div><p class="caption">Reimporting the same events reuses the saved match. A changed export is saved separately so you can compare revisions.</p></article>`;
- const trackerPanel=document.createElement('article');trackerPanel.className='panel';content.prepend(trackerPanel);
- mountTracker(trackerPanel,match,loadMatch);
  $('#export').onclick=()=>{const url=URL.createObjectURL(new Blob([JSON.stringify(match,null,2)],{type:'application/json'}));const a=document.createElement('a');a.href=url;a.download='match-'+match.gameId+'.json';a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);};
 }
+function renderAdmin() {
+ content.innerHTML=`<div class="section-title"><h2>${esc(contenders.map(c=>c.teamName).join(' vs '))}</h2><span>Changes are saved for all viewers</span></div><div class="admin-summary"><span>XML: ${events.length.toLocaleString()} events</span><span>Box score: ${match.boxScore?'attached':'not attached'}</span><span>Tracker: ${Object.keys(match.trackerData||{}).length} teams</span></div><div id="admin-boxscore"></div><article id="admin-tracker" class="panel"></article><article id="admin-pitch"></article>`;
+ mountBoxScore($('#admin-boxscore'),match,loadMatch,{editable:true});
+ mountTracker($('#admin-tracker'),match,loadMatch);
+ const editingMatch=match;
+ mountPitch($('#admin-pitch'),match,{editable:true,onPlayer:(id,teamId)=>{team=contenders.findIndex(c=>c.id===teamId);showPlayer(id);},onSave:async(teamId,positions)=>{
+  const updated=await api('pitch',{gameId:editingMatch.gameId,teamId,positions});
+  if(match===editingMatch)match.pitchPositions=updated.pitchPositions;
+ }});
+}
+function setAdmin(value) {
+ admin=value;
+ $('#access-mode').textContent=admin?'ADMIN MODE':'VIEW ONLY';
+ $('#admin-open').textContent=admin?'Admin dashboard':'Admin sign in';
+ $('#admin-logout').hidden=!admin;
+ if(!admin&&view==='admin')view='players';
+ render();
+}
+$('#admin-open').onclick=async()=>{
+ if(admin){view='admin';render();return;}
+ $('#admin-status').textContent='';$('#admin-dialog').showModal();$('#admin-password').focus();
+ try{const state=await api('auth');if(!state.configured)$('#admin-status').textContent='Set ADMIN_PASSWORD on the server (at least 12 characters), then restart to enable admin sign-in.';}catch(e){$('#admin-status').textContent=e.message;}
+};
+$('#admin-close').onclick=()=>$('#admin-dialog').close();
+$('#admin-dialog').addEventListener('close',()=>{$('#admin-password').value='';});
+$('#admin-form').onsubmit=async e=>{
+ e.preventDefault();const button=e.submitter;button.disabled=true;
+ try{await api('auth/login',{password:$('#admin-password').value});$('#admin-dialog').close();view='admin';setAdmin(true);}
+ catch(err){$('#admin-status').textContent=err.message;}
+ finally{$('#admin-password').value='';button.disabled=false;}
+};
+$('#admin-logout').onclick=async()=>{
+ try{await api('auth/logout',{});setAdmin(false);}
+ catch(e){$('#import-status').textContent='Sign out failed: '+e.message;}
+};
+window.addEventListener('admin-expired',()=>{setAdmin(false);$('#import-status').textContent='Your admin session ended. Sign in again to make changes.';});
+async function refreshAuth(){try{const state=await api('auth');if(state.authenticated!==admin)setAdmin(state.authenticated);}catch{if(admin)setAdmin(false);}}
 document.querySelectorAll('[data-view]').forEach(b=>b.onclick=()=>{view=b.dataset.view;render();});
 $('#manage').onclick=()=>{view='data';render();};
 $('#close').onclick=()=>$('#detail').close();
 render();
 await mountImports(loadMatch);
+await refreshAuth();
+setInterval(refreshAuth,60000);
+document.addEventListener('visibilitychange',()=>{if(!document.hidden)refreshAuth();});

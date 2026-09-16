@@ -1,3 +1,4 @@
+import {login,TEST_PASSWORD} from './helpers/auth.mjs';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {mkdtemp,rm} from 'node:fs/promises';
@@ -52,20 +53,21 @@ test('different outcomes or clip ranges are not collapsed',()=>{
 });
 test('local HTTP import persists, reimports stay idempotent, failed imports preserve data and source downloads round-trip',async()=>{
  const dir=await mkdtemp(path.join(os.tmpdir(),'matchroom-xml-'));
- const store=new Store(dir),app=createApp(store);app.listen(0,'127.0.0.1');await once(app,'listening');
+ const store=new Store(dir),app=createApp(store,{adminPassword:TEST_PASSWORD});app.listen(0,'127.0.0.1');await once(app,'listening');
  const base='http://127.0.0.1:'+app.address().port;
- const post=(xml,extra={})=>fetch(base+'/api/import',{method:'POST',headers:{'Content-Type':'application/json','X-Matchroom-Request':'1',...extra},body:JSON.stringify({xml,filename:'test.xml'})});
+ const cookie=await login(base);
+ const post=(xml,extra={})=>fetch(base+'/api/import',{method:'POST',headers:{Cookie:cookie,'Content-Type':'application/json','X-Matchroom-Request':'1',...extra},body:JSON.stringify({xml,filename:'test.xml'})});
  try {
   assert.equal((await fetch(base+'/api/matches')).status,200);
   assert.equal((await post(fixture(),{Origin:'https://example.com'})).status,403);
   assert.equal((await post(fixture(),{'X-Matchroom-Request':'0'})).status,403);
   const response=await post(fixture());assert.equal(response.status,200);const m=await response.json();assert.equal(m.raw,undefined);
   assert.equal((await post(fixture())).status,200);assert.equal((await store.list()).length,1);
-  const attached=await store.match(m.gameId);attached.boxScore={date:'2026-09-06'};attached.raw.boxScoreHtml='<html>saved official source</html>';await store.save(attached);
-  assert.equal((await post(fixture())).status,200);const reimported=await store.match(m.gameId);assert.equal(reimported.boxScore.date,'2026-09-06');assert.equal(reimported.raw.boxScoreHtml,attached.raw.boxScoreHtml);
+  const attached=await store.match(m.gameId);attached.pitchPositions={[m.contenders[0].id]:{player:{x:120,y:240}}};attached.boxScore={date:'2026-09-06'};attached.raw.boxScoreHtml='<html>saved official source</html>';await store.save(attached);
+  assert.equal((await post(fixture())).status,200);const reimported=await store.match(m.gameId);assert.equal(reimported.boxScore.date,'2026-09-06');assert.equal(reimported.raw.boxScoreHtml,attached.raw.boxScoreHtml);assert.deepEqual(reimported.pitchPositions,attached.pitchPositions);
   assert.equal((await post('<bad/>')).status,400);assert.equal((await new Store(dir).match(m.gameId)).events.length,3);
   assert.equal(await (await fetch(base+'/api/matches/'+m.gameId+'/source')).text(),fixture());
-  assert.equal((await fetch(base+'/api/connect',{method:'POST'})).status,404);
+  assert.equal((await fetch(base+'/api/connect',{method:'POST',headers:{Cookie:cookie}})).status,404);
   assert.equal((await fetch(base+'/api/status')).status,404);
   assert.equal((await fetch(base+'/api/matches/not-an-id')).status,400);
   assert.equal((await fetch(base+'/')).status,200);

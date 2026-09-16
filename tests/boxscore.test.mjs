@@ -1,3 +1,4 @@
+import {login,TEST_PASSWORD} from './helpers/auth.mjs';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
@@ -73,9 +74,10 @@ test('preview never writes; confirmed attachment persists separate official reco
  const dir=await mkdtemp(path.join(os.tmpdir(),'matchroom-boxscore-'));
  assert.equal(path.dirname(path.resolve(dir)),path.resolve(os.tmpdir()));
  const store=new Store(dir),m=xmlMatch(parseBoxScore(html,url));await store.save(m);
- const app=createApp(store,{boxFetcher:async()=>({html,url})});app.listen(0,'127.0.0.1');await once(app,'listening');
+ const app=createApp(store,{adminPassword:TEST_PASSWORD,boxFetcher:async()=>({html,url})});app.listen(0,'127.0.0.1');await once(app,'listening');
  const base='http://127.0.0.1:'+app.address().port;
- const post=(route,body,extra={})=>fetch(base+'/api/boxscore/'+route,{method:'POST',headers:{'Content-Type':'application/json','X-Matchroom-Request':'1',...extra},body:JSON.stringify(body)});
+ const cookie=await login(base);
+ const post=(route,body,extra={})=>fetch(base+'/api/boxscore/'+route,{method:'POST',headers:{Cookie:cookie,'Content-Type':'application/json','X-Matchroom-Request':'1',...extra},body:JSON.stringify(body)});
  try {
   assert.equal((await post('preview',{gameId:m.gameId,url},{Origin:'https://example.com'})).status,403);
   const response=await post('preview',{gameId:m.gameId,url});assert.equal(response.status,200);const draft=await response.json();

@@ -8,11 +8,15 @@ import {importXml} from './lib/xml-import.mjs';
 import {fetchBoxScore,parseBoxScore,previewBoxScore,boxScoreUrl} from './lib/boxscore.mjs';
 import {randomUUID} from 'node:crypto';
 import {parseTrackerData} from './dist/tracker.js';
+import {createAuth} from './lib/auth.mjs';
+import {ratedPlayers} from './dist/ratings.js';
+import {boundPosition} from './dist/pitch-layout.js';
 const root=fileURLToPath(new URL('./dist/',import.meta.url));
 const types={'.html':'text/html; charset=utf-8','.css':'text/css; charset=utf-8','.js':'text/javascript; charset=utf-8','.svg':'image/svg+xml','.png':'image/png','.jpg':'image/jpeg','.jpeg':'image/jpeg','.webp':'image/webp'};
 const summary=({raw,...match})=>match;
-export function createApp(store=new Store(),{boxFetcher=fetchBoxScore}={}) {
+export function createApp(store=new Store(),{boxFetcher=fetchBoxScore,adminPassword=process.env.ADMIN_PASSWORD,authOptions}={}) {
  const drafts=new Map();
+ const auth=createAuth(adminPassword,authOptions);
  return http.createServer(async(req,res)=>{
   const send=(status,body)=>res.writeHead(status,{'Content-Type':'application/json','Cache-Control':'no-store','X-Content-Type-Options':'nosniff'}).end(JSON.stringify(body));
   try {
@@ -21,6 +25,17 @@ export function createApp(store=new Store(),{boxFetcher=fetchBoxScore}={}) {
    const url=new URL(req.url,`http://${host}`);
    if(url.pathname.startsWith('/api/')) {
     if(req.headers.origin&&req.headers.origin!==`http://${host}`){send(403,{error:'Cross-origin access denied.'});return;}
+    if(req.method==='GET'&&url.pathname==='/api/auth'){send(200,{configured:auth.configured,authenticated:auth.authenticated(req)});return;}
+    if(req.method==='POST'&&['/api/auth/login','/api/auth/logout'].includes(url.pathname)) {
+     if(req.headers['x-matchroom-request']!=='1'||!req.headers['content-type']?.startsWith('application/json')){send(403,{error:'Use the app to sign in.'});return;}
+     if(url.pathname.endsWith('/logout')){auth.logout(req,res);send(200,{authenticated:false});return;}
+     const chunks=[];let size=0;
+     for await(const chunk of req){size+=chunk.length;if(size>4096){send(413,{error:'Request too large.'});return;}chunks.push(chunk);}
+     let body;try{body=JSON.parse(Buffer.concat(chunks).toString('utf8'));}catch{send(400,{error:'Invalid sign-in request.'});return;}
+     const {status,...result}=auth.login(req,res,body?.password);send(status,result);return;
+    }
+    // Fail closed for all write methods, including future API routes.
+    if(!['GET','HEAD'].includes(req.method)&&!auth.authenticated(req)){send(401,{error:'Sign in as admin to make changes.'});return;}
     if(req.method==='GET'&&url.pathname==='/api/matches'){send(200,await store.list());return;}
     const matchRoute=url.pathname.match(/^\/api\/matches\/([^/]+)(\/source)?$/);
     if(req.method==='GET'&&matchRoute) {
@@ -32,11 +47,23 @@ export function createApp(store=new Store(),{boxFetcher=fetchBoxScore}={}) {
      }
      send(200,summary(match));return;
     }
-    if(req.method==='POST'&&['/api/import','/api/tracker','/api/boxscore/preview','/api/boxscore/attach'].includes(url.pathname)) {
+    if(req.method==='POST'&&['/api/import','/api/tracker','/api/pitch','/api/boxscore/preview','/api/boxscore/attach'].includes(url.pathname)) {
      if(req.headers['x-matchroom-request']!=='1'||!req.headers['content-type']?.startsWith('application/json')){send(403,{error:'Use the local app to import a match.'});return;}
      const chunks=[];let size=0;
      for await(const chunk of req){size+=chunk.length;if(size>25*1024*1024){send(413,{error:'Request too large. Use an XML export under 20 MB.'});return;}chunks.push(chunk);}
      let body;try{body=JSON.parse(Buffer.concat(chunks).toString('utf8'));}catch{send(400,{error:'Invalid import request.'});return;}
+     if(url.pathname==='/api/pitch') {
+      const match=await store.match(gameId(body?.gameId));if(!match)throw Error('Load a saved match first.');
+      if(!match.contenders.some(c=>c.id===body.teamId))throw Error('Choose a team in this match.');
+      if(!body.positions||typeof body.positions!=='object'||Array.isArray(body.positions))throw Error('Invalid pitch positions.');
+      const players=new Set(ratedPlayers(match,body.teamId).map(p=>p.id)),positions=Object.create(null);
+      for(const [id,p] of Object.entries(body.positions)){
+       if(!players.has(id)||!Number.isFinite(p?.x)||!Number.isFinite(p?.y))throw Error('Invalid player or pitch coordinates.');
+       positions[id]=boundPosition(p.x,p.y);
+      }
+      match.pitchPositions??={};match.pitchPositions[body.teamId]=positions;
+      await store.save(match);send(200,summary(match));return;
+     }
      if(url.pathname==='/api/tracker') {
       const match=await store.match(gameId(body?.gameId));if(!match)throw Error('Load an XML match first.');
       if(!match.contenders.some(c=>c.id===body.teamId))throw Error('Choose a team in this match.');
@@ -74,6 +101,7 @@ export function createApp(store=new Store(),{boxFetcher=fetchBoxScore}={}) {
      }
      const match=importXml(body?.xml,body?.filename);
      const previous=await store.match(match.gameId);
+     if(previous?.pitchPositions)match.pitchPositions=previous.pitchPositions;
      if(previous?.trackerData)match.trackerData=previous.trackerData;
      if(previous?.boxScore){match.boxScore=previous.boxScore;for(const k of ['boxScoreHtml','boxScoreHistory'])if(previous.raw?.[k])match.raw[k]=previous.raw[k];}
      await store.save(match);

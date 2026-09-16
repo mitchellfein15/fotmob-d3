@@ -5,7 +5,7 @@
   "scripts": {
     "start": "node server.mjs",
     "test": "node --test",
-    "check": "node --check server.mjs && node --check dist/app.js && node --check dist/model.js && node --check dist/ratings.js && node --check dist/import-ui.js && node --check lib/xml-import.mjs && node --check lib/identity.mjs && node --check lib/store.mjs && node --check lib/boxscore.mjs && node --check dist/boxscore-ui.js && node --check dist/tracker.js && node --check dist/tracker-ui.js && node --check dist/pitch.js && node --check dist/pitch-layout.js"
+    "check": "node --check server.mjs && node --check dist/app.js && node --check dist/model.js && node --check dist/ratings.js && node --check dist/import-ui.js && node --check lib/xml-import.mjs && node --check lib/identity.mjs && node --check lib/store.mjs && node --check lib/boxscore.mjs && node --check dist/boxscore-ui.js && node --check dist/tracker.js && node --check dist/tracker-ui.js && node --check dist/pitch.js && node --check dist/pitch-layout.js && node --check lib/auth.mjs"
   },
   "dependencies": {
     "@xmldom/xmldom": "^0.9.12",

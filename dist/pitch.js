@@ -2,7 +2,6 @@ import {ratedPlayers} from './ratings.js';
 import {PITCH,BANDS,category,splitLineup,tieredLayout,boundPosition,lastName,ratingColor} from './pitch-layout.js';
 const d3=globalThis.d3;
 let sequence=0;
-const memory=new Map();
 const placeholder=(text,background='#344c43')=>'data:image/svg+xml,'+encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" width="100" height="100"><rect width="100" height="100" fill="${background}"/><text x="50" y="62" text-anchor="middle" fill="#edf1e8" font-family="sans-serif" font-size="32">${String(text).replace(/[<>&"']/g,'')}</text></svg>`);
 // Match assets may be local files or HTTPS images; no executable URL schemes.
 const asset=url=>typeof url==='string'&&(/^(https?:\/\/|\/[^/])/.test(url)||/^data:image\/(png|jpeg|webp);base64,/.test(url))?url:null;
@@ -23,27 +22,37 @@ function playerNode(group,p,club,defs) {
  group.append('text').attr('y',53).attr('class','pitch-name').text(lastName(p));
  group.append('title').text(`${p.name} · ${p.position} · Rating ${p.rating??'unavailable'}`);
 }
-export function mountPitch(container,match,{onPlayer=()=>{}}={}) {
+export function mountPitch(container,match,{onPlayer=()=>{},editable=false,onSave=async()=>{}}={}) {
  const root=d3.select(container).attr('class','lineup-board');
  root.append('h2').text('Tactical lineup');
- root.append('p').attr('class','muted').text('Four position bands · Drag players into place. Select a player for their rating breakdown.');
+ root.classed('pitch-readonly',!editable);
+ root.append('p').attr('class','muted').text(editable?'Drag players or use arrow keys, then save positions. Select a player for their rating breakdown.':'Select a player for their rating breakdown.');
  const toolbar=root.append('div').attr('class','toolbar');
  const teams=toolbar.append('div').attr('class','segmented');
- const reset=toolbar.append('button').text('Reset positions');
+ const reset=toolbar.append('button').text('Reset positions').attr('hidden',editable?null:true);
+ const saveButton=toolbar.append('button').text('Save positions').attr('hidden',editable?null:true);
  const body=root.append('div');
  let teamId=match.contenders[0]?.id;
+ const drafts=structuredClone(match.pitchPositions||{});
  const buttons=teams.selectAll('button').data(match.contenders).join('button').text(d=>d.shortName||d.teamName).on('click',(_,d)=>{teamId=d.id;render();});
  function render() {
   buttons.classed('selected',d=>d.id===teamId).attr('aria-pressed',d=>d.id===teamId);
   body.selectAll('*').remove();
   const club=match.contenders.find(c=>c.id===teamId);
   if(!club)return;
-  const key=`matchroom:pitch:v1:${match.gameId}:${teamId}`;
-  let saved=memory.get(key)||{};
-  if(!memory.has(key))try{const value=JSON.parse(localStorage.getItem(key));if(value&&typeof value==='object'&&!Array.isArray(value))saved=value;}catch{}
+  let saved=drafts[teamId]||{};
   const status=body.append('p').attr('class','caption').attr('role','status');
-  function persist(){memory.set(key,saved);try{localStorage.setItem(key,JSON.stringify(saved));status.text('Positions saved in this browser.');}catch{status.text('Positions kept for this session; browser storage is unavailable.');}}
-  reset.on('click',()=>{saved={};persist();render();});
+  function persist(){drafts[teamId]=saved;status.text('Unsaved positions. Select Save positions to publish this layout.');}
+  reset.on('click',()=>{if(!editable)return;saved={};persist();render();});
+  status.text(editable?'Select Save positions to publish this team’s layout.':'');
+  saveButton.on('click',async()=>{
+   if(!editable)return;
+   const selectedTeam=teamId,positions=structuredClone(saved);
+   saveButton.property('disabled',true);reset.property('disabled',true);status.text('Saving positions…');
+   try{await onSave(selectedTeam,positions);status.text('Positions saved for all viewers.');}
+   catch(e){status.text(e.message);}
+   finally{saveButton.property('disabled',false);reset.property('disabled',false);}
+  });
   const groups=splitLineup(ratedPlayers(match,teamId));
   const nodes=tieredLayout(groups.starters,saved);
   const svg=body.append('svg').attr('class','tactical-pitch').attr('viewBox',`0 0 ${PITCH.width} ${PITCH.height}`).attr('aria-label',`${club.teamName} tactical pitch; attack at the top`);
@@ -55,15 +64,15 @@ export function mountPitch(container,match,{onPlayer=()=>{}}={}) {
   markings.append('path').attr('d','M18 400H702 M205 18V140H515V18 M280 18V67H440V18 M205 782V660H515V782 M280 782V733H440V782');
   markings.append('circle').attr('cx',360).attr('cy',400).attr('r',75);
   markings.append('circle').attr('cx',360).attr('cy',400).attr('r',3).attr('fill','#62816d');
-  const players=svg.append('g').selectAll('g').data(nodes,d=>d.id).join('g').attr('class','pitch-player').attr('transform',d=>`translate(${d.x},${d.y})`).attr('tabindex',0).attr('role','button').attr('aria-label',d=>`${d.name}, rating ${d.rating??'unavailable'}. Drag or use arrow keys to reposition; Enter for details.`);
+  const players=svg.append('g').selectAll('g').data(nodes,d=>d.id).join('g').attr('class','pitch-player').attr('transform',d=>`translate(${d.x},${d.y})`).attr('tabindex',0).attr('role','button').attr('aria-label',d=>`${d.name}, rating ${d.rating??'unavailable'}. ${editable?'Drag or use arrow keys to reposition; ':''}Enter for details.`);
   players.each(function(p){playerNode(d3.select(this),p,club,defs);});
   const move=(node,d,x,y)=>{Object.assign(d,boundPosition(x,y));d3.select(node).attr('transform',`translate(${d.x},${d.y})`);};
   const save=d=>{saved[d.id]={x:d.x,y:d.y};persist();};
-  players.call(d3.drag().clickDistance(4).on('start',function(){d3.select(this).raise().classed('dragging',true);}).on('drag',function(event,d){move(this,d,event.x,event.y);}).on('end',function(_,d){d3.select(this).classed('dragging',false);save(d);}));
+  if(editable)players.call(d3.drag().clickDistance(4).on('start',function(){d3.select(this).raise().classed('dragging',true);}).on('drag',function(event,d){move(this,d,event.x,event.y);}).on('end',function(_,d){d3.select(this).classed('dragging',false);save(d);}));
   players.on('click',(_,d)=>onPlayer(d.id,teamId)).on('keydown',function(event,d){
    if(event.key==='Enter'||event.key===' '){event.preventDefault();onPlayer(d.id,teamId);return;}
    const offset={ArrowLeft:[-10,0],ArrowRight:[10,0],ArrowUp:[0,-10],ArrowDown:[0,10]}[event.key];
-   if(offset){event.preventDefault();move(this,d,d.x+offset[0],d.y+offset[1]);save(d);}
+   if(editable&&offset){event.preventDefault();move(this,d,d.x+offset[0],d.y+offset[1]);save(d);}
   });
   if(!nodes.length)status.text('No starters with known positions. Attach an official box score below to populate the pitch.');
   function bench(title,rows) {

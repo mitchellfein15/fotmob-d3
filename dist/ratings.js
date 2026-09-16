@@ -23,8 +23,8 @@ export const RATING_WEIGHTS = {
  yellowCard: 0.30,
  redCard: 1.20,
  save: 0.18,
- goalConceded: 0.30,
- cleanSheet: 0.60,
+ goalConceded: 0.40,
+ cleanSheet: 1.0,
  workRate: 0.01, // Per tracker work-rate unit above the baseline.
  distanceCovered: 0.02, // Per kilometre.
  hardRunning: 0.0002, // Per metre; combined with sprinting below.

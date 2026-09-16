@@ -14,7 +14,7 @@ export function playerTiming(match,id) {
 }
 function comparisonTable(rows) {return `<div class="table-wrap"><table><thead><tr><th>Team</th><th>Spiideo shots</th><th>Official shots</th><th>Spiideo goals</th><th>Official goals</th></tr></thead><tbody>${rows.map(r=>`<tr><td>${esc(r.xmlTeam)} (${esc(r.teamKey)})</td><td>${r.xml.shots}</td><td>${r.official.shots}</td><td>${r.xml.goals}</td><td>${r.official.goals}</td></tr>`).join('')}</tbody></table></div>`;}
 function warningList(warnings){return `<ul class="checklist">${warnings.map(w=>`<li>${esc(w)}</li>`).join('')}</ul>`;}
-export function mountBoxScore(container,match,onLoad) {
+export function mountBoxScore(container,match,onLoad,{editable=false}={}) {
  const b=match.boxScore;
  container.innerHTML=`<article class="panel"><h2>Official box score</h2><p>Attach the athletics website’s lineup, positions, and playing-time records to this XML match.</p><label>Box-score URL<input id="box-url" type="url" placeholder="https://athletics.case.edu/boxscore.aspx?id=…&path=msoc" value="${esc(b?.sourceUrl||'')}"></label><p class="caption">Supports men’s soccer box scores from Case Western and Wooster. Both /sports/mens-soccer/stats/…/boxscore/… and boxscore.aspx links work. Confirm the game date in the preview.</p><details><summary>Use a saved webpage if the website is unavailable</summary><p>On the box-score page, save the complete webpage as HTML. Choose that .html file here and enter its original URL above.</p><label>Saved box-score HTML<input id="box-file" type="file" accept=".html,.htm,text/html"></label></details><button id="box-preview">Preview box score</button><p id="box-status" role="status" aria-live="polite"></p><div id="box-draft"></div></article><div id="box-attached"></div>`;
  const $=s=>container.querySelector(s);
@@ -26,6 +26,7 @@ export function mountBoxScore(container,match,onLoad) {
   $('#official-team').onchange=roster;roster();
  }
  attached();
+ if(!editable){container.firstElementChild.remove();return;}
  $('#box-preview').onclick=async()=>{
   $('#box-preview').disabled=true;$('#box-status').textContent='Reading the official box score…';$('#box-draft').innerHTML='';
   try {
