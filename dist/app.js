@@ -3,6 +3,7 @@ import {mountImports,api} from './import-ui.js';
 import {mountBoxScore,playerTiming} from './boxscore-ui.js';
 import {mountTracker,trackerDetails} from './tracker-ui.js';
 import {mountPitch} from './pitch.js';
+import {crestContent,mountTeamImages} from './team-images.js';
 const $=s=>document.querySelector(s);
 const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const label=s=>String(s??'').replaceAll('_',' ');
@@ -21,7 +22,7 @@ function loadMatch(m) {
  match=m;events=m.events;participants=m.participants;contenders=m.contenders;team=0;filter='';eventType='all';
  document.querySelectorAll('.team h1').forEach((el,i)=>el.textContent=contenders[i]?.teamName||'Team');
  document.querySelectorAll('.team small').forEach((el,i)=>el.textContent=['home','away'].includes(contenders[i]?.type)?contenders[i].type.toUpperCase():i?'AWAY':'HOME');
- document.querySelectorAll('.crest').forEach((el,i)=>el.textContent=(contenders[i]?.teamName||'').split(/\s+/).map(s=>s[0]).join('').slice(0,4));
+ document.querySelectorAll('#match-header .crest').forEach((el,i)=>el.innerHTML=crestContent(contenders[i]));
  const goals=contenders.map(c=>teamStatistics(match,c.id).goals);
  $('.score strong').textContent=goals.join(' : ');
  $('.score span').textContent='Goals';
@@ -88,6 +89,12 @@ function renderData() {
 }
 function renderAdmin() {
  content.innerHTML=`<div class="section-title"><h2>${esc(contenders.map(c=>c.teamName).join(' vs '))}</h2><span>Saved for all viewers</span></div><div class="admin-summary"><span>XML: ${events.length.toLocaleString()} events</span><span>Box score: ${match.boxScore?'attached':'not attached'}</span><span>Tracker: ${Object.keys(match.trackerData||{}).length} teams</span></div><div id="admin-boxscore"></div><article id="admin-tracker" class="panel"></article><article id="admin-pitch"></article>`;
+ const images=document.createElement('article');images.className='panel';content.querySelector('.admin-summary').after(images);
+ const imageMatch=match;
+ mountTeamImages(images,match,async updated=>{
+  if(match===imageMatch){loadMatch(updated);const status=document.createElement('p');status.setAttribute('role','status');status.textContent='Team image saved for all viewers.';content.querySelector('.admin-summary').after(status);}
+  try{await importControls.refresh();}catch(e){$('#import-status').textContent='Image saved. Could not refresh match cards: '+e.message;}
+ });
  mountBoxScore($('#admin-boxscore'),match,loadMatch,{editable:true});
  mountTracker($('#admin-tracker'),match,loadMatch);
  const editingMatch=match;

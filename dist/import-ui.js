@@ -1,9 +1,9 @@
+import {crestContent} from './team-images.js';
 const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 export async function api(path,body) {
  const response=await fetch('/api/'+path,body===undefined?{}:{method:'POST',headers:{'Content-Type':'application/json','X-Matchroom-Request':'1'},body:JSON.stringify(body)});
  const result=await response.json();if(!response.ok){if(response.status===401&&path!=='auth/login')window.dispatchEvent(new Event('admin-expired'));throw Error(result.error||'Request failed.');}return result;
 }
-function initials(name){return String(name||'').split(/\s+/).map(s=>s[0]).join('').slice(0,3)||'FC';}
 export async function mountImports(onLoad) {
  const shell=document.querySelector('#imports');
  const editor=document.querySelector('#admin-imports');
@@ -24,7 +24,7 @@ export async function mountImports(onLoad) {
    const teams=m.contenders||[];
    const homeTeam=teams[0]?.teamName||'Home';
    const awayTeam=teams[1]?.teamName||'Away';
-   return `<button class="game-card" type="button" data-game="${esc(m.gameId)}"><div class="versus"><div class="game-side"><span class="crest">${esc(initials(homeTeam))}</span><b>${esc(homeTeam)}</b></div><div class="game-side"><span class="crest">${esc(initials(awayTeam))}</span><b>${esc(awayTeam)}</b></div></div><div class="game-meta"><strong>${(m.counts?.events??0).toLocaleString()}</strong><span>events</span><span>${esc(new Date(m.importedAt).toLocaleString())}</span></div></button>`;
+   return `<button class="game-card" type="button" data-game="${esc(m.gameId)}"><div class="versus"><div class="game-side"><span class="crest">${crestContent(teams[0])}</span><b>${esc(homeTeam)}</b></div><div class="game-side"><span class="crest">${crestContent(teams[1])}</span><b>${esc(awayTeam)}</b></div></div><div class="game-meta"><strong>${(m.counts?.events??0).toLocaleString()}</strong><span>events</span><span>${esc(new Date(m.importedAt).toLocaleString())}</span></div></button>`;
   }).join('');
   home.querySelectorAll('[data-game]').forEach(b=>b.onclick=async()=>{
    if(busy||!b.dataset.game)return;
@@ -54,5 +54,5 @@ export async function mountImports(onLoad) {
  }
  catch(e){$('#import-status').textContent=e.message;}
  finally{state(false);}
- return {load,selected:()=>current||$('#saved-match').value};
+ return {load,refresh:async()=>{await refresh();$('#saved-match').value=current;},selected:()=>current||$('#saved-match').value};
 }

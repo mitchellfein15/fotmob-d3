@@ -11,6 +11,7 @@ import {parseTrackerData} from './dist/tracker.js';
 import {createAuth} from './lib/auth.mjs';
 import {ratedPlayers} from './dist/ratings.js';
 import {boundPosition} from './dist/pitch-layout.js';
+import {validateTeamImage} from './lib/team-images.mjs';
 const root=fileURLToPath(new URL('./dist/',import.meta.url));
 const types={'.html':'text/html; charset=utf-8','.css':'text/css; charset=utf-8','.js':'text/javascript; charset=utf-8','.svg':'image/svg+xml','.png':'image/png','.jpg':'image/jpeg','.jpeg':'image/jpeg','.webp':'image/webp'};
 const summary=({raw,...match})=>match;
@@ -47,11 +48,18 @@ export function createApp(store=new Store(),{boxFetcher=fetchBoxScore,adminPassw
      }
      send(200,summary(match));return;
     }
-    if(req.method==='POST'&&['/api/import','/api/tracker','/api/pitch','/api/boxscore/preview','/api/boxscore/attach'].includes(url.pathname)) {
+    if(req.method==='POST'&&['/api/import','/api/tracker','/api/pitch','/api/team-image','/api/boxscore/preview','/api/boxscore/attach'].includes(url.pathname)) {
      if(req.headers['x-matchroom-request']!=='1'||!req.headers['content-type']?.startsWith('application/json')){send(403,{error:'Use the local app to import a match.'});return;}
      const chunks=[];let size=0;
      for await(const chunk of req){size+=chunk.length;if(size>25*1024*1024){send(413,{error:'Request too large. Use an XML export under 20 MB.'});return;}chunks.push(chunk);}
      let body;try{body=JSON.parse(Buffer.concat(chunks).toString('utf8'));}catch{send(400,{error:'Invalid import request.'});return;}
+     if(url.pathname==='/api/team-image') {
+      const match=await store.match(gameId(body?.gameId));if(!match)throw Error('Load a saved match first.');
+      const team=match.contenders.find(c=>c.id===body.teamId);if(!team)throw Error('Choose a team in this match.');
+      const image=validateTeamImage(body.crestUrl);
+      if(image)team.crestUrl=image;else {delete team.crestUrl;delete team.logoUrl;}
+      await store.save(match);send(200,summary(match));return;
+     }
      if(url.pathname==='/api/pitch') {
       const match=await store.match(gameId(body?.gameId));if(!match)throw Error('Load a saved match first.');
       if(!match.contenders.some(c=>c.id===body.teamId))throw Error('Choose a team in this match.');
@@ -101,6 +109,7 @@ export function createApp(store=new Store(),{boxFetcher=fetchBoxScore,adminPassw
      }
      const match=importXml(body?.xml,body?.filename);
      const previous=await store.match(match.gameId);
+     for(const team of match.contenders){const saved=previous?.contenders.find(c=>c.id===team.id);if(saved?.crestUrl)team.crestUrl=saved.crestUrl;}
      if(previous?.pitchPositions)match.pitchPositions=previous.pitchPositions;
      if(previous?.trackerData)match.trackerData=previous.trackerData;
      if(previous?.boxScore){match.boxScore=previous.boxScore;for(const k of ['boxScoreHtml','boxScoreHistory'])if(previous.raw?.[k])match.raw[k]=previous.raw[k];}

@@ -353,3 +353,8 @@ body[data-screen=admin] .lineup-board{background:#121821;border-color:var(--admi
   header{height:auto;flex-wrap:wrap}
   .admin-access{width:100%;justify-content:space-between}
 }
+.crest img{display:block;width:100%;height:100%;object-fit:contain;border-radius:inherit}
+.team-image-editor{display:flex;align-items:center;gap:14px;flex-wrap:wrap;margin-top:20px}
+.team-image-editor label{flex:1;min-width:180px}
+.team-image-editor input{max-width:100%}
+.team-image-editor p{flex-basis:100%;margin:0}
