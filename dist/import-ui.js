@@ -5,7 +5,7 @@ export async function api(path,body) {
 }
 export async function mountImports(onLoad) {
  const shell=document.querySelector('#imports');
- shell.innerHTML=`<div class="section-title"><h2>Import a match</h2><span>Saved on this computer</span></div><p>In Spiideo, open the recording → Info → Export tags. Choose the downloaded XML below.</p><div class="toolbar"><label>Tag export (.xml)<input id="xml-file" type="file" accept=".xml,application/xml,text/xml"></label><button id="import-xml">Import XML</button><label>Saved match<select id="saved-match"><option value="">No saved matches</option></select></label></div><p id="import-status" role="status" aria-live="polite"></p>`;
+ shell.innerHTML=`<div class="section-title"><h2>Import a match</h2><span>Saved on this computer</span></div><p>In Spiideo, open the recording → Info → Export tags. Choose the downloaded XML below. Its passes, duels, shots, goals, blocks, and cards automatically feed the player ratings. Attach an official box score in Lineups & minutes to add roster and playing-time information.</p><div class="toolbar"><label>Tag export (.xml)<input id="xml-file" type="file" accept=".xml,application/xml,text/xml"></label><button id="import-xml">Import XML</button><label>Saved match<select id="saved-match"><option value="">No saved matches</option></select></label></div><p id="import-status" role="status" aria-live="polite"></p>`;
  const $=s=>shell.querySelector(s);let current='',busy=false;
  try{current=localStorage.getItem('d3-selected-match')||'';}catch{}
  const remember=id=>{current=id;try{localStorage.setItem('d3-selected-match',id);}catch{}};
@@ -18,11 +18,11 @@ export async function mountImports(onLoad) {
   if(!file){$('#import-status').textContent='Choose an XML export first.';return;}
   if(file.size>20*1024*1024){$('#import-status').textContent='Choose an XML export under 20 MB.';return;}
   state(true);$('#import-status').textContent='Reading and saving your match…';
-  try {const match=await api('import',{xml:await file.text(),filename:file.name});onLoad(match);remember(match.gameId);await refresh();$('#saved-match').value=match.gameId;$('#xml-file').value='';$('#import-status').textContent=`Saved ${match.counts.events.toLocaleString()} events. ${match.counts.representations.toLocaleString()} repeated player/team entries excluded; ${match.counts.duplicateRows} identical action rows collapsed. See Import details for totals and limitations.`;}
+  try {const match=await api('import',{xml:await file.text(),filename:file.name});onLoad(match);remember(match.gameId);await refresh();$('#saved-match').value=match.gameId;$('#xml-file').value='';$('#import-status').textContent=`Saved ${match.counts.events.toLocaleString()} events. ${match.counts.representations.toLocaleString()} repeated player/team entries excluded; ${match.counts.duplicateRows} identical action rows collapsed. Player ratings updated. Open Players and select a player to see the scoring breakdown.`;}
   catch(e){$('#import-status').textContent=e.message;}
   finally{state(false);}
  };
- $('#saved-match').onchange=async e=>{if(!e.target.value||busy)return;state(true);try{await load(e.target.value);$('#import-status').textContent='Saved match loaded.';}catch(err){$('#saved-match').value=current;$('#import-status').textContent=err.message;}finally{state(false);}};
+ $('#saved-match').onchange=async e=>{if(!e.target.value||busy)return;state(true);try{await load(e.target.value);$('#import-status').textContent='Saved match loaded. Player ratings calculated from its XML events and any attached box score.';}catch(err){$('#saved-match').value=current;$('#import-status').textContent=err.message;}finally{state(false);}};
  state(true);
  try{const rows=await refresh();if(rows.length)await load(rows.some(m=>m.gameId===current)?current:rows[0].gameId);}
  catch(e){$('#import-status').textContent=e.message;}
