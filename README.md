@@ -108,3 +108,11 @@ const players = ratedPlayers(match, teamId);
 ```
 
 Tracker weights, caps, and the work-rate baseline are editable at the top of `dist/ratings.js`. The defaults assume total distance in kilometres and hard running/sprinting in metres. Work rate and top speed retain the export's units. Work rate earns 0.01 per unit above 50, capped at 0.40; distance earns 0.02 per kilometre, capped at 0.30; high-intensity running earns 0.0002 per hard-running metre plus 0.0005 per sprinting metre, capped at 0.40 combined. Effort counts and top speed are displayed but do not add rating points. Missing data adds no points or penalties. Ratings retain the existing 1–10 clamp and one-decimal rounding.
+
+### Tactical pitch
+
+Open **Lineups & minutes** for a dark SVG pitch and substitute bench. Recorded starters are evenly spread across fixed GK, DEF, MID and FWD bands (attack at the top); empty bands remain empty. Unknown lineup status or positions appear separately until source records identify them. No exact tactical roles are inferred.
+
+Drag a starter anywhere inside the pitch, or focus a player and use arrow keys. Positions persist in this browser per match/team/player; **Reset positions** restores the automatic layout for the selected team. Click a player (including substitutes) or press Enter for the rating breakdown.
+
+Player images use `avatarUrl` / `photoUrl` (or official `avatarUrl`), and teams use `crestUrl` / `logoUrl`. Local and HTTPS assets are supported, with initials when images are absent or fail. Ratings are green at 7.0+, orange at 6.0–6.9, red below 6.0, and neutral when unavailable. D3 7.9.0 is vendored in `dist/vendor` so the layout works without a CDN.

@@ -2,6 +2,7 @@ import {ratedPlayers,teamStatistics,RATING_VERSION} from './ratings.js';
 import {mountImports} from './import-ui.js';
 import {mountBoxScore,playerTiming} from './boxscore-ui.js';
 import {mountTracker,trackerDetails} from './tracker-ui.js';
+import {mountPitch} from './pitch.js';
 const $=s=>document.querySelector(s);
 const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const label=s=>String(s??'').replaceAll('_',' ');
@@ -27,7 +28,13 @@ function render() {
  if(!match){content.innerHTML='<div class="panel"><h2>No match imported yet</h2><p>Choose a Spiideo XML export above to load player statistics and the event timeline.</p></div>';return;}
  const passes=events.filter(e=>e.action.type==='pass');
  $('#summary').innerHTML=[['Imported events',events.length.toLocaleString()],['Passes completed',`${passes.filter(e=>e.action.outcome==='successful').length} / ${passes.length}`],['Shots',contenders.reduce((sum,c)=>sum+teamStatistics(match,c.id).shots,0)],['Source',match.source==='spiideo-xml'?'XML export':'Saved match']].map(([k,v])=>`<div><span>${k}</span><strong>${v}</strong></div>`).join('');
- if(view==='players')renderPlayers();else if(view==='timeline')renderTimeline();else if(view==='lineups')mountBoxScore(content,match,loadMatch);else renderData();
+ if(view==='players')renderPlayers();else if(view==='timeline')renderTimeline();else if(view==='lineups'){
+  content.replaceChildren();
+  const pitch=document.createElement('article'),records=document.createElement('div');
+  content.append(pitch,records);
+  mountPitch(pitch,match,{onPlayer:(id,teamId)=>{team=contenders.findIndex(c=>c.id===teamId);showPlayer(id);}});
+  mountBoxScore(records,match,loadMatch);
+ }else renderData();
 }
 function renderPlayers() {
  const rows=ratedPlayers(match,contenders[team].id).filter(p=>`${p.name} ${p.numberText}`.toLowerCase().includes(filter.toLowerCase()));

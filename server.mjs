@@ -9,7 +9,7 @@ import {fetchBoxScore,parseBoxScore,previewBoxScore,boxScoreUrl} from './lib/box
 import {randomUUID} from 'node:crypto';
 import {parseTrackerData} from './dist/tracker.js';
 const root=fileURLToPath(new URL('./dist/',import.meta.url));
-const types={'.html':'text/html; charset=utf-8','.css':'text/css; charset=utf-8','.js':'text/javascript; charset=utf-8'};
+const types={'.html':'text/html; charset=utf-8','.css':'text/css; charset=utf-8','.js':'text/javascript; charset=utf-8','.svg':'image/svg+xml','.png':'image/png','.jpg':'image/jpeg','.jpeg':'image/jpeg','.webp':'image/webp'};
 const summary=({raw,...match})=>match;
 export function createApp(store=new Store(),{boxFetcher=fetchBoxScore}={}) {
  const drafts=new Map();
@@ -86,7 +86,7 @@ export function createApp(store=new Store(),{boxFetcher=fetchBoxScore}={}) {
    const file=path.resolve(root,'.'+(name==='/'?'/index.html':name));
    if(!file.startsWith(path.resolve(root)+path.sep)){send(403,{error:'Forbidden.'});return;}
    const data=await readFile(file);
-   res.writeHead(200,{'Content-Type':types[path.extname(file)]||'application/octet-stream','Cache-Control':'no-store','X-Content-Type-Options':'nosniff','Content-Security-Policy':"default-src 'self'; script-src 'self'; style-src 'self'; connect-src 'self'; img-src 'self' data:; object-src 'none'; base-uri 'none'; frame-ancestors 'self'"}).end(req.method==='HEAD'?undefined:data);
+   res.writeHead(200,{'Content-Type':types[path.extname(file)]||'application/octet-stream','Cache-Control':'no-store','X-Content-Type-Options':'nosniff','Content-Security-Policy':"default-src 'self'; script-src 'self'; style-src 'self'; connect-src 'self'; img-src 'self' data: https:; object-src 'none'; base-uri 'none'; frame-ancestors 'self'"}).end(req.method==='HEAD'?undefined:data);
   }catch(e){send(e.code==='ENOENT'?404:400,{error:e.code==='ENOENT'?'Not found':e.message});}
  });
 }
@@ -94,3 +94,4 @@ if(process.argv[1]&&path.resolve(process.argv[1])===fileURLToPath(import.meta.ur
  const port=Number(process.env.PORT||4173);
  createApp().listen(port,'127.0.0.1',()=>console.log(`D3 Matchroom: http://127.0.0.1:${port}`));
 }
+
