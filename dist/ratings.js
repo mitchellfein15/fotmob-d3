@@ -46,7 +46,7 @@ export const RATING_CAPS = {
  defenderDuelsBonus: 2.0,
  blocks: 0.70,
  defenderBlocks: 0.70,
- discipline: 2.00,
+ discipline: 1.50,
  saves: 1.80,
  goalsConceded: 2.00,
  workRate: 0.30,

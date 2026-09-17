@@ -1,6 +1,7 @@
 import {login,TEST_PASSWORD} from './helpers/auth.mjs';
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import {load} from 'cheerio';
 import {readFileSync} from 'node:fs';
 import {mkdtemp,rm} from 'node:fs/promises';
 import path from 'node:path';
@@ -16,7 +17,7 @@ test('descriptive soccer URLs fetch the legacy endpoint and retain Oberlin data 
  const canonical='https://athletics.case.edu/boxscore.aspx?id=9898&path=msoc';
  assert.equal(boxScoreUrl(oberlinUrl),canonical);
  assert.equal(boxScoreUrl(oberlinUrl+'/?view=individual#stats'),canonical);
- assert.equal(boxScoreUrl(oberlinUrl.replace('athletics.case.edu','woosterathletics.com')),canonical.replace('athletics.case.edu','woosterathletics.com'));
+ assert.throws(()=>boxScoreUrl(oberlinUrl.replace('athletics.case.edu','woosterathletics.com')));
  for(const bad of [oberlinUrl.replace('mens-soccer','womens-soccer'),oberlinUrl.replace('athletics.case.edu','example.com'),oberlinUrl+'/extra'])assert.throws(()=>boxScoreUrl(bad));
  const saved=readFileSync(new URL('./fixtures/boxscore-9898.html',import.meta.url),'utf8');
  const fetched=await fetchBoxScore(oberlinUrl,{fetcher:async(u)=>{assert.equal(u,canonical);return new Response(saved,{headers:{'Content-Type':'text/html'}});}});
@@ -33,6 +34,43 @@ test('descriptive soccer URLs fetch the legacy endpoint and retain Oberlin data 
 function xmlMatch(b) {
  return {gameId:'11111111-1111-1111-1111-111111111111',importedAt:'2026-09-12T00:00:00Z',contenders:[{id:'a',teamName:'Case Western Reserve University'},{id:'b',teamName:'College of Wooster'}],participants:b.players.map(p=>({id:'xml-'+p.id,contenderId:p.teamKey==='CWRU'?'a':'b',name:p.name,numberText:p.name==='Louis Markin'?'99':p.jersey,type:'player'})),events:[{id:'shot',action:{type:'shot',contender:'a'}}],raw:{xml:'original'}};
 }
+
+test('Allegheny link imports TEAM statistics separately without creating a player',async()=>{
+ const source='https://athletics.case.edu/sports/mens-soccer/stats/2026/allegheny/boxscore/9900';
+ const saved=readFileSync(new URL('./fixtures/boxscore-9900.html',import.meta.url),'utf8');
+ const fetched=await fetchBoxScore(source,{fetcher:async(u)=>{
+  assert.equal(u,'https://athletics.case.edu/boxscore.aspx?id=9900&path=msoc');
+  return new Response(saved,{headers:{'Content-Type':'text/html'}});
+ }});
+ const b=parseBoxScore(fetched.html,source);
+ assert.equal(b.date,'2026-09-13');
+ assert.equal(b.players.length,43);
+ assert.ok(b.players.every(p=>p.name!=='TEAM'&&p.jersey!=='TM'));
+ assert.deepEqual(b.teams.map(t=>t.totals.goals),[1,3]);
+ assert.deepEqual(b.teams[0].unassignedStats,{shots:0,shotsOnGoal:0,goals:1,assists:0});
+ assert.equal(b.players.filter(p=>p.teamKey==='AC').reduce((sum,p)=>sum+p.stats.goals,0),0);
+ assert.ok(b.warnings.some(w=>w.includes('TEAM statistics')));
+ assert.ok(!b.warnings.some(w=>w.includes('does not reconcile')));
+ assert.equal(b.timingComplete,true);
+ for(const t of b.teams) {
+  assert.equal(b.players.filter(p=>p.teamKey===t.key&&p.starter).length,11);
+  assert.equal(b.players.filter(p=>p.teamKey===t.key).reduce((sum,p)=>sum+p.derivedSeconds,0),11*5400);
+ }
+ assert.equal(b.players.find(p=>p.name==='Charlie Hutton').jersey,'0');
+ const preview=previewBoxScore(xmlMatch(b),b);
+ assert.equal(preview.links.length,43);
+ assert.ok(preview.links.every(l=>l.participantId));
+
+ // Do not silently skip malformed real players or invalid team statistics.
+ for(const [jersey,name,expected] of [['','TEAM',/invalid jersey/],['TM','Unknown Player',/invalid jersey/],['9','',/missing name/]]) {
+  const $=load(saved),row=$('#individual-stats tbody tr').filter((_,r)=>$(r).children().eq(1).text().trim()==='TM').first();
+  row.children().eq(1).text(jersey);row.children().eq(2).text(name);
+  assert.throws(()=>parseBoxScore($.html(),source),expected);
+ }
+ const $=load(saved),row=$('#individual-stats tbody tr').filter((_,r)=>$(r).children().eq(1).text().trim()==='TM').first();
+ row.children().eq(5).text('invalid');
+ assert.throws(()=>parseBoxScore($.html(),source),/invalid statistic in the TEAM row/);
+});
 test('actual SIDEARM fixture extracts both rosters, all periods and one copy of each substitution',()=>{
  const b=parseBoxScore(html,url);
  assert.equal(b.date,'2026-09-06');assert.equal(b.players.length,52);assert.equal(b.substitutions.length,60);assert.equal(b.timingComplete,true);
