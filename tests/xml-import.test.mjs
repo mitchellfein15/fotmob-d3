@@ -21,7 +21,7 @@ const fixture=()=>wrap([
 ]);
 test('action lanes exclude representations and exact duplicates without losing raw XML',()=>{
  const xml=fixture(),m=importXml(xml,'tags.xml');
- assert.deepEqual(m.counts,{instances:6,actionRows:4,representations:2,duplicateRows:1,events:3,participants:2});
+ assert.deepEqual(m.counts,{instances:6,actionRows:4,representations:2,duplicateRows:1,events:3,participants:2,skippedTags:0});
  assert.equal(m.raw.xml,xml);
  const p=m.participants.find(p=>p.numberText==='9');
  assert.equal(p.name,'A & B');
@@ -44,8 +44,35 @@ test('same label under two teams stays separate and is reported',()=>{
  assert.equal(m.participants.length,2);assert.notEqual(m.participants[0].id,m.participants[1].id);
  assert.ok(m.warnings.some(w=>w.includes('both teams')));
 });
-test('malformed XML, DTDs, invalid clips, repeated IDs, orphan lanes and missing teams fail',()=>{
- for(const xml of ['<file>','<!DOCTYPE file SYSTEM "file:///private"><file/>',fixture().replace('</instance>',''),fixture().replace('<start>12</start>','<start>bad</start>'),fixture().replace('<ID>2</ID>','<ID>1</ID>'),fixture().replace('<code>Team A</code>','<code>Unknown</code>'),wrap([row(1,'pass',{fromTeam:'Team A'})])]) assert.throws(()=>importXml(xml));
+test('unrecognized codes and manual tags without event labels are skipped',()=>{
+ const original=importXml(fixture());
+ const extra=row(7,'pass',{fromTeam:'Coach notes'},'Review this')+'<instance><ID>8</ID><start>20</start><end>25</end><code>Coach note</code></instance>';
+ const xml=fixture().replace('<code>Team A</code>','<code>Unknown</code>').replace('</ALL_INSTANCES>',extra+'</ALL_INSTANCES>');
+ const m=importXml(xml);
+ assert.deepEqual(m.events,original.events);
+ assert.deepEqual(m.totals,original.totals);
+ assert.equal(m.gameId,original.gameId);
+ assert.equal(m.counts.instances,8);
+ assert.equal(m.counts.representations,1);
+ assert.equal(m.counts.skippedTags,3);
+ assert.ok(m.warnings.some(w=>w.includes('3 unrecognized tags skipped')));
+ assert.equal(m.raw.xml,xml);
+});
+test('manual tags with multiple event-type labels are skipped as whole instances',()=>{
+ const original=importXml(fixture());
+ const extra='<instance><ID>24</ID><start>922.0</start><end>937.0</end><code>Apostolides</code><label><text>Body Shape</text></label><label><text>Decision-making</text></label></instance>';
+ const xml=fixture().replace('</ALL_INSTANCES>',extra+'</ALL_INSTANCES>');
+ const m=importXml(xml);
+ assert.deepEqual(m.events,original.events);
+ assert.deepEqual(m.totals,original.totals);
+ assert.deepEqual(m.participants,original.participants);
+ assert.equal(m.gameId,original.gameId);
+ assert.deepEqual(m.counts,{...original.counts,instances:7,skippedTags:1});
+ assert.ok(m.warnings.some(w=>w.includes('1 unrecognized tags skipped')));
+ assert.equal(m.raw.xml,xml);
+});
+test('malformed XML, DTDs, invalid clips, repeated IDs and missing teams fail',()=>{
+ for(const xml of ['<file>','<!DOCTYPE file SYSTEM "file:///private"><file/>',fixture().replace('</instance>',''),fixture().replace('<start>12</start>','<start>bad</start>'),fixture().replace('<ID>2</ID>','<ID>1</ID>'),wrap([row(1,'pass',{fromTeam:'Team A'})])]) assert.throws(()=>importXml(xml));
 });
 test('different outcomes or clip ranges are not collapsed',()=>{
  const m=importXml(wrap([row(1,'pass',fields),row(2,'pass',{...fields,outcome:'UNSUCCESSFUL'}),row(3,'pass',fields,'pass',13,17),row(4,'shot',{team:'Team B'})]));

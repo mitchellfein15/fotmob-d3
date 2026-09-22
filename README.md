@@ -41,6 +41,7 @@ The same event content, even in a renamed file, reuses its saved match. A revise
 ## Interpretation and validation
 
 - Use the action-coded XML rows. Player and team lanes repeat the same actions and are excluded only when a corresponding action can be verified.
+- Skip unrecognized tags without a matching action row or a single event-type label, including manual coach tags with multiple labels. Import warnings report the skipped count, and the original XML retains all tags.
 - Collapse exact action duplicates based on event type, clip range, and all labels. Retain their XML instance IDs and the complete original XML for auditing. These are duplicate candidates, not proof that separate real-world events could never share the same labels.
 - Preserve event outcomes, player roles, substitutions, phases, coordinates, assists, and blockers. Unknown labels remain available.
 - Player identities are scoped to team and source label. Names appearing under both teams are flagged, not silently reassigned. This is not a complete roster or starting lineup.

@@ -10,6 +10,7 @@ const label=s=>String(s??'').replaceAll('_',' ');
 const time=n=>`${Math.floor(n/60)}:${String(Math.floor(n%60)).padStart(2,'0')}`;
 let match=null,events=[],participants=[],contenders=[],view='lineups',team=0,filter='',eventType='all';
 let admin=false,screen='home';
+const trackerEditors=new Map();
 let importControls={load:async()=>{},selected:()=>''};
 const content=$('#content');
 function showScreen() {
@@ -96,7 +97,8 @@ function renderAdmin() {
   try{await importControls.refresh();}catch(e){$('#import-status').textContent='Image saved. Could not refresh match cards: '+e.message;}
  });
  mountBoxScore($('#admin-boxscore'),match,loadMatch,{editable:true});
- mountTracker($('#admin-tracker'),match,loadMatch);
+ if(!trackerEditors.has(match.gameId))trackerEditors.set(match.gameId,{drafts:{}});
+ mountTracker($('#admin-tracker'),match,loadMatch,trackerEditors.get(match.gameId));
  const editingMatch=match;
  mountPitch($('#admin-pitch'),match,{editable:true,onPlayer:(id,teamId)=>{team=contenders.findIndex(c=>c.id===teamId);showPlayer(id);},onSave:async(teamId,positions)=>{
   const updated=await api('pitch',{gameId:editingMatch.gameId,teamId,positions});

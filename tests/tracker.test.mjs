@@ -72,9 +72,15 @@ test('tracker API validates, saves, reloads, preserves on XML reimport and clear
  try {
   assert.equal((await post('tracker',body)).status,200);
   const loaded=await (await fetch(base+'/api/matches/'+saved.gameId)).json();assert.equal(loaded.trackerData[teamId],sample);
+  const secondTeam=saved.contenders[1].id,secondSample=sample.replace('Alex Eby','Second Team Player');
+  assert.equal((await post('tracker',{...body,teamId:secondTeam,tsv:secondSample})).status,200);
+  const both=await (await fetch(base+'/api/matches/'+saved.gameId)).json();
+  assert.equal(both.trackerData[teamId],sample);
+  assert.equal(both.trackerData[secondTeam],secondSample);
   assert.equal((await post('tracker',{...body,tsv:'invalid'})).status,400);assert.equal(saved.trackerData[teamId],sample);
   assert.equal((await post('tracker',{...body,teamId:'other'})).status,400);
   assert.equal((await post('import',{xml})).status,200);assert.equal(saved.trackerData[teamId],sample);
   assert.equal((await post('tracker',{...body,tsv:''})).status,200);assert.equal(saved.trackerData[teamId],undefined);
+  assert.equal(saved.trackerData[secondTeam],secondSample);
  } finally {await new Promise(resolve=>app.close(resolve));}
 });
