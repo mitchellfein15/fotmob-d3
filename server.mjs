@@ -12,20 +12,29 @@ import {createAuth} from './lib/auth.mjs';
 import {ratedPlayers} from './dist/ratings.js';
 import {boundPosition} from './dist/pitch-layout.js';
 import {validateTeamImage} from './lib/team-images.mjs';
+import {deploymentConfig} from './lib/config.mjs';
 const root=fileURLToPath(new URL('./dist/',import.meta.url));
 const types={'.html':'text/html; charset=utf-8','.css':'text/css; charset=utf-8','.js':'text/javascript; charset=utf-8','.svg':'image/svg+xml','.png':'image/png','.jpg':'image/jpeg','.jpeg':'image/jpeg','.webp':'image/webp'};
 const summary=({raw,...match})=>match;
-export function createApp(store=new Store(),{boxFetcher=fetchBoxScore,adminPassword=process.env.ADMIN_PASSWORD,authOptions}={}) {
+export function createApp(store=new Store(),{boxFetcher=fetchBoxScore,adminPassword=process.env.ADMIN_PASSWORD,authOptions,config=deploymentConfig()}={}) {
  const drafts=new Map();
- const auth=createAuth(adminPassword,authOptions);
+ const auth=createAuth(adminPassword,{...authOptions,secure:config.production});
  return http.createServer(async(req,res)=>{
   const send=(status,body)=>res.writeHead(status,{'Content-Type':'application/json','Cache-Control':'no-store','X-Content-Type-Options':'nosniff'}).end(JSON.stringify(body));
+  res.setHeader('Referrer-Policy','same-origin');
+  if(config.production)res.setHeader('Strict-Transport-Security','max-age=31536000');
   try {
+   // Render's health checks can use a verified custom domain before APP_ORIGIN is set.
+   if(req.url==='/healthz'&&['GET','HEAD'].includes(req.method)){
+    try{await store.health?.();send(200,{status:'ok'});}catch{send(503,{error:'Storage unavailable.'});}return;
+   }
    const host=req.headers.host;
-   if(!/^127\.0\.0\.1:\d+$/.test(host??'')){send(403,{error:'Use the 127.0.0.1 address printed by the server.'});return;}
-   const url=new URL(req.url,`http://${host}`);
+   const origin=config.origins.find(value=>new URL(value).host===host)||(!config.production&&/^127\.0\.0\.1:\d+$/.test(host??'')?`http://${host}`:null);
+   if(!origin){send(403,{error:'Unrecognized application host.'});return;}
+   if(!req.url.startsWith('/')||req.url.startsWith('//')){send(400,{error:'Invalid request target.'});return;}
+   const url=new URL(req.url,origin);
    if(url.pathname.startsWith('/api/')) {
-    if(req.headers.origin&&req.headers.origin!==`http://${host}`){send(403,{error:'Cross-origin access denied.'});return;}
+    if((req.headers.origin&&req.headers.origin!==origin)||req.headers['sec-fetch-site']==='cross-site'){send(403,{error:'Cross-origin access denied.'});return;}
     if(req.method==='GET'&&url.pathname==='/api/auth'){send(200,{configured:auth.configured,authenticated:auth.authenticated(req)});return;}
     if(req.method==='POST'&&['/api/auth/login','/api/auth/logout'].includes(url.pathname)) {
      if(req.headers['x-matchroom-request']!=='1'||!req.headers['content-type']?.startsWith('application/json')){send(403,{error:'Use the app to sign in.'});return;}
@@ -33,7 +42,7 @@ export function createApp(store=new Store(),{boxFetcher=fetchBoxScore,adminPassw
      const chunks=[];let size=0;
      for await(const chunk of req){size+=chunk.length;if(size>4096){send(413,{error:'Request too large.'});return;}chunks.push(chunk);}
      let body;try{body=JSON.parse(Buffer.concat(chunks).toString('utf8'));}catch{send(400,{error:'Invalid sign-in request.'});return;}
-     const {status,...result}=auth.login(req,res,body?.password);send(status,result);return;
+     const {status,...result}=await auth.login(req,res,body?.password);send(status,result);return;
     }
     // Fail closed for all write methods, including future API routes.
     if(!['GET','HEAD'].includes(req.method)&&!auth.authenticated(req)){send(401,{error:'Sign in as admin to make changes.'});return;}
@@ -49,7 +58,7 @@ export function createApp(store=new Store(),{boxFetcher=fetchBoxScore,adminPassw
      send(200,summary(match));return;
     }
     if(req.method==='POST'&&['/api/import','/api/tracker','/api/pitch','/api/team-image','/api/boxscore/preview','/api/boxscore/attach'].includes(url.pathname)) {
-     if(req.headers['x-matchroom-request']!=='1'||!req.headers['content-type']?.startsWith('application/json')){send(403,{error:'Use the local app to import a match.'});return;}
+     if(req.headers['x-matchroom-request']!=='1'||!req.headers['content-type']?.startsWith('application/json')){send(403,{error:'Use the app to import a match.'});return;}
      const chunks=[];let size=0;
      for await(const chunk of req){size+=chunk.length;if(size>25*1024*1024){send(413,{error:'Request too large. Use an XML export under 20 MB.'});return;}chunks.push(chunk);}
      let body;try{body=JSON.parse(Buffer.concat(chunks).toString('utf8'));}catch{send(400,{error:'Invalid import request.'});return;}
@@ -124,11 +133,23 @@ export function createApp(store=new Store(),{boxFetcher=fetchBoxScore,adminPassw
    if(!file.startsWith(path.resolve(root)+path.sep)){send(403,{error:'Forbidden.'});return;}
    const data=await readFile(file);
    res.writeHead(200,{'Content-Type':types[path.extname(file)]||'application/octet-stream','Cache-Control':'no-store','X-Content-Type-Options':'nosniff','Content-Security-Policy':"default-src 'self'; script-src 'self'; style-src 'self'; connect-src 'self'; img-src 'self' data: https:; object-src 'none'; base-uri 'none'; frame-ancestors 'self'"}).end(req.method==='HEAD'?undefined:data);
-  }catch(e){send(e.code==='ENOENT'?404:400,{error:e.code==='ENOENT'?'Not found':e.message});}
+  }catch(e){
+   if(e.code&&e.code!=='ENOENT'){console.error('Request failed:',e.code);send(500,{error:'An internal server error occurred.'});}
+   else send(e.code==='ENOENT'?404:400,{error:e.code==='ENOENT'?'Not found':e.message});
+  }
  });
 }
 if(process.argv[1]&&path.resolve(process.argv[1])===fileURLToPath(import.meta.url)) {
- const port=Number(process.env.PORT||4173);
- createApp().listen(port,'127.0.0.1',()=>console.log(`D3 Matchroom: http://127.0.0.1:${port}`));
+ const config=deploymentConfig(),store=new Store();
+ await store.health();
+ const server=createApp(store,{config});
+ server.requestTimeout=60000;server.headersTimeout=15000;
+ server.listen(config.port,config.host,()=>console.log(`D3 Matchroom: ${config.origins[0]||`http://${config.host}:${config.port}`}`));
+ let stopping=false;
+ for(const signal of ['SIGTERM','SIGINT'])process.on(signal,()=>{
+  if(stopping)return;stopping=true;
+  server.close(()=>process.exit(0));
+  setTimeout(()=>process.exit(1),25000).unref();
+ });
 }
 

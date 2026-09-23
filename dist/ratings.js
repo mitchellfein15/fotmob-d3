@@ -58,7 +58,7 @@ export const RATING_RULES = {
  baseRating: 6.0,
  minimumRating: 1.0,
  maximumRating: 10.0,
- expectedPassCompletion: 0.60, // 70%; passing points measure performance above/below this.
+ expectedPassCompletion: 0.60, // Passing points measure performance above/below 60%.
  cleanSheetMinimumMinutes: 60,
  workRateBaseline: 50.0,
 };

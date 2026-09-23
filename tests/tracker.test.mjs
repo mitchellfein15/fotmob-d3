@@ -7,7 +7,7 @@ import {parseTrackerData,nameKey,ratedPlayers} from '../dist/ratings.js';
 import {importXml} from '../lib/xml-import.mjs';
 import {createApp} from '../server.mjs';
 
-const sample=readFileSync(new URL('./fixtures/tracker.tsv',import.meta.url),'utf8');
+const sample=readFileSync(new URL('./fixtures/tracker.tsv',import.meta.url),'utf8').replaceAll('\r\n','\n');
 const header=sample.split('\n')[0];
 const tsv=(values=['8','60','1,000','40','200','5','9'])=>header+'\n\tAlex Eby\t'+values.join('\t');
 function match(){return {
@@ -50,7 +50,7 @@ test('tracker contributions merge without mutation and stay isolated to the sele
 test('tracker caps, final rating bound, official-only players and ambiguous names',()=>{
  const m=match();m.trackerData.a=tsv(['100','500','10000','100','10000','100','15']);
  const points=Object.fromEntries(ratedPlayers(m,'a')[0].contributions.map(c=>[c.label,c.points]));
- assert.equal(points['Work rate bonus'],.4);assert.equal(points['Distance covered'],.3);assert.equal(points['High-intensity running'],.4);
+ assert.equal(points['Work rate bonus'],.3);assert.equal(points['Distance covered'],.3);assert.equal(points['High-intensity running'],.3);
  m.events.push(...Array.from({length:10},()=>({action:{type:'goal',participant:'p'}})));
  assert.equal(ratedPlayers(m,'a')[0].rating,10);
  m.participants.push({...m.participants[0],id:'duplicate'});

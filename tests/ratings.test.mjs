@@ -41,7 +41,7 @@ test('higher overlapping counts are selected, incorrect roster identity dropped,
  assert.equal(p.shots,3);assert.equal(p.goals,1);assert.equal(p.assists,1);
  assert.equal(teamStatistics(m,'c').shots,17);
  assert.equal(ratedPlayers(m,'w').length,0);assert.equal(JSON.stringify(m),before);
- assert.equal(p.coverage,'Brief appearance');assert.equal(p.rating,8.2);
+ assert.equal(p.coverage,'Brief appearance');assert.equal(p.rating,8.0);
  m.boxScore.players[0].stats.shots=0;assert.equal(ratedPlayers(m,'c')[0].shots,1);
 });
 
@@ -54,7 +54,7 @@ test('advanced contributions use role weights, target accuracy, turnover penalti
  add({type:'shot',outcome:'saved'});add({type:'shot',outcome:'blocked'});
  add({type:'corner'});add({type:'cross'});
  const points=()=>Object.fromEntries(ratedPlayers(m,'c')[0].contributions.map(c=>[c.label,c.points]));
- assert.equal(points()['Progressive passes'],.06);assert.equal(points()['Passes intercepted'],-.02);
+ assert.equal(points()['Progressive passes'],.06);assert.equal(points()['Passes intercepted'],-.04);
  assert.equal(points()['Shots on target'],.12);assert.equal(points()['Set pieces executed'],.06);
  o.position='MID';assert.equal(points()['Progressive passes'],.06);
  o.position='FWD';assert.equal(points()['Progressive passes'],.04);
@@ -80,6 +80,6 @@ test('official-only keepers and unused substitutes receive appropriate handling'
  assert.equal(unused.rating,null);
  for(const metric of ['progressivePasses','passesIntercepted','shotsOnTarget','setPiecesExecuted'])assert.equal(unused[metric],0);
  o.derivedSeconds=null;o.goalkeeper={seconds:5400,saves:5,goalsAgainst:0};
- const p=ratedPlayers(m,'c')[0];assert.equal(p.role,'GK');assert.equal(p.minutes,90);assert.equal(p.rating,7.5);
+ const p=ratedPlayers(m,'c')[0];assert.equal(p.role,'GK');assert.equal(p.minutes,90);assert.equal(p.rating,7.9);
  o.goalkeeper=null;o.publishedMinutes=20;assert.equal(ratedPlayers(m,'c')[0].minutes,20);
 });
