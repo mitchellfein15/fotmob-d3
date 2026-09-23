@@ -17,7 +17,7 @@ test('production configuration fails closed and supports Render and custom domai
  assert.equal(deploymentConfig({}).host,'127.0.0.1');
  assert.equal(deploymentConfig({...env,NODE_ENV:'development',RENDER:'true'}).production,true);
  for(const ADMIN_PASSWORD of ['', 'short', '            '])assert.throws(()=>deploymentConfig({...env,ADMIN_PASSWORD}),/ADMIN_PASSWORD/);
- assert.throws(()=>deploymentConfig({...env,DATA_DIR:'relative'}),/DATA_DIR/);
+ for(const DATA_DIR of [undefined,'','relative'])assert.equal(deploymentConfig({...env,DATA_DIR}).production,true);
  assert.throws(()=>deploymentConfig({...env,RENDER_EXTERNAL_URL:''}),/APP_ORIGIN/);
  for(const APP_ORIGIN of ['http://example.com','https://user:pass@example.com','https://example.com/path','https://example.com/?x=1'])assert.throws(()=>deploymentConfig({...env,APP_ORIGIN}));
  for(const PORT of ['0','-1','65536','1.5','no'])assert.throws(()=>deploymentConfig({...env,PORT}),/PORT/);
