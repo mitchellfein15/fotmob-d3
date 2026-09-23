@@ -6,7 +6,7 @@ import {mkdtemp,rm} from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 import {deploymentConfig} from '../lib/config.mjs';
-import {Store} from '../lib/store.mjs';
+import {Store} from './helpers/supabase.mjs';
 import {createApp} from '../server.mjs';
 import {TEST_PASSWORD} from './helpers/auth.mjs';
 
@@ -24,7 +24,7 @@ test('production configuration fails closed and supports Render and custom domai
  assert.deepEqual(deploymentConfig({...env,APP_ORIGIN:'https://soccer.example.com'}).origins,['https://soccer.example.com','https://matchroom.onrender.com']);
 });
 
-test('production proxy requests enforce host/origin, secure sessions and disk persistence across restarts',async()=>{
+test('production proxy requests enforce host/origin, secure sessions and persistence across app restarts',async()=>{
  const directory=await mkdtemp(path.join(os.tmpdir(),'matchroom-deploy-'));
  const config=deploymentConfig({...environment(),APP_ORIGIN:'https://soccer.example.com'});
  let server,base;
@@ -61,7 +61,7 @@ test('production proxy requests enforce host/origin, secure sessions and disk pe
  }finally{if(server?.listening)await close();await rm(directory,{recursive:true,force:true});}
 });
 
-test('health checks report unavailable storage without exposing filesystem errors',async()=>{
+test('health checks report unavailable storage without exposing backend errors',async()=>{
  const app=createApp({health:async()=>{throw Error('private filesystem path');}},{config:deploymentConfig({}),adminPassword:TEST_PASSWORD});
  app.listen(0,'127.0.0.1');await once(app,'listening');
  try{const response=await fetch(`http://127.0.0.1:${app.address().port}/healthz`);assert.equal(response.status,503);assert.deepEqual(await response.json(),{error:'Storage unavailable.'});}

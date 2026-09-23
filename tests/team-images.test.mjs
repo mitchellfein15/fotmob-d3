@@ -5,7 +5,7 @@ import os from 'node:os';
 import path from 'node:path';
 import {once} from 'node:events';
 import {createApp} from '../server.mjs';
-import {Store} from '../lib/store.mjs';
+import {Store} from './helpers/supabase.mjs';
 import {login,TEST_PASSWORD} from './helpers/auth.mjs';
 import {validateTeamImage} from '../lib/team-images.mjs';
 const image='data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+aP1sAAAAASUVORK5CYII=';
@@ -25,11 +25,12 @@ test('admin image upload persists publicly, survives reimport and can be removed
   assert.equal((await post('team-image',body)).status,401);
   assert.equal((await post('team-image',{...body,teamId:'unknown'},cookie)).status,400);
   assert.equal((await post('team-image',{...body,crestUrl:'javascript:alert(1)'},cookie)).status,400);
-  assert.equal((await post('team-image',body,cookie)).status,200);
-  const reimport=await (await post('import',{xml},cookie)).json();assert.equal(reimport.contenders[0].crestUrl,image);
-  assert.equal((await new Store(dir).match(match.gameId)).contenders[0].crestUrl,image);
-  const list=await (await fetch(base+'/api/matches')).json();assert.equal(list[0].contenders[0].crestUrl,image);
-  assert.equal((await (await fetch(base+'/api/matches/'+match.gameId)).json()).contenders[0].crestUrl,image);
+  const uploaded=await post('team-image',body,cookie);assert.equal(uploaded.status,200);
+  const publicUrl=(await uploaded.json()).contenders[0].crestUrl;assert.match(publicUrl,/^https:\/\/test\.supabase\.co\/storage\/v1\/object\/public\/images\//);
+  const reimport=await (await post('import',{xml},cookie)).json();assert.equal(reimport.contenders[0].crestUrl,publicUrl);
+  assert.equal((await new Store(dir).match(match.gameId)).contenders[0].crestUrl,publicUrl);
+  const list=await (await fetch(base+'/api/matches')).json();assert.equal(list[0].contenders[0].crestUrl,publicUrl);
+  assert.equal((await (await fetch(base+'/api/matches/'+match.gameId)).json()).contenders[0].crestUrl,publicUrl);
   assert.equal((await post('team-image',{...body,crestUrl:null},cookie)).status,200);
   assert.equal((await store.match(match.gameId)).contenders[0].crestUrl,undefined);
  }finally{await new Promise(resolve=>app.close(resolve));await rm(dir,{recursive:true,force:true});}

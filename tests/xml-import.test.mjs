@@ -6,7 +6,7 @@ import os from 'node:os';
 import path from 'node:path';
 import {once} from 'node:events';
 import {importXml} from '../lib/xml-import.mjs';
-import {Store} from '../lib/store.mjs';
+import {Store} from './helpers/supabase.mjs';
 import {createApp} from '../server.mjs';
 const wrap=rows=>'<file><ALL_INSTANCES>'+rows.join('')+'</ALL_INSTANCES></file>';
 const row=(id,type,fields={},code=type,start=12,end=16)=>'<instance><ID>'+id+'</ID><start>'+start+'</start><end>'+end+'</end><code>'+code+'</code><label><text>'+type+'</text></label>'+Object.entries(fields).map(([k,v])=>'<label><text>'+v+'</text><group>'+k+'</group></label>').join('')+'</instance>';

@@ -7,16 +7,14 @@ services:
     buildCommand: npm ci && npm run check
     startCommand: npm start
     healthCheckPath: /healthz
-    disk:
-      name: matchroom-data
-      mountPath: /var/data
-      sizeGB: 1
     envVars:
       - key: NODE_ENV
         value: production
       - key: NODE_VERSION
         value: 22.x
-      - key: DATA_DIR
-        value: /var/data/matchroom
+      - key: SUPABASE_URL
+        sync: false
+      - key: SUPABASE_SERVICE_ROLE_KEY
+        sync: false
       - key: ADMIN_PASSWORD
         generateValue: true

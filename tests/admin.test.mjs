@@ -60,5 +60,5 @@ test('sessions expire and failed sign-ins are throttled',async()=>{
  }finally{await s.close();}
 });
 test('short configured passwords are rejected at startup',()=>{
- assert.throws(()=>createApp(undefined,{adminPassword:'short'}),/at least 12/);
+ assert.throws(()=>createApp({},{adminPassword:'short'}),/at least 12/);
 });

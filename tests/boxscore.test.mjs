@@ -8,7 +8,7 @@ import path from 'node:path';
 import os from 'node:os';
 import {once} from 'node:events';
 import {parseBoxScore,previewBoxScore,fetchBoxScore,boxScoreUrl} from '../lib/boxscore.mjs';
-import {Store} from '../lib/store.mjs';
+import {Store} from './helpers/supabase.mjs';
 import {createApp} from '../server.mjs';
 const url='https://athletics.case.edu/boxscore.aspx?id=9897&path=msoc';
 const html=readFileSync(new URL('./fixtures/boxscore-9897.html',import.meta.url),'utf8');
